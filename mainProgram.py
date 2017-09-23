@@ -2,9 +2,9 @@
 #
 # Constants are in ALL_CAPS with underscores to separate words
 # Other variables/functions are in camelCase
-# Functions MUST start with 'f'
 # Classes are in CamelCase starting with a captial letter
 # Local variables declared within a function MUST begin with 'lcl'
+# Give any construct a descriptive name to avoid duplicate names
 
 import pygame, os, pickle
 from pygame.locals import *
@@ -22,6 +22,7 @@ CLOCK = pygame.time.Clock()
 FPS = 30
 
 # default key values
+# these can be changed in the options menu
 MOVE_LEFT_KEY = K_LEFT
 MOVE_RIGHT_KEY = K_RIGHT
 MOVE_DOWN_KEY = K_DOWN
@@ -30,7 +31,41 @@ USE_TOOL_KEY = K_z
 CYCLE_TOOL_LEFT_KEY = K_a
 CYCLE_TOOL_RIGHT_KEY = K_s
 
-def fHandleGameEvents():
+# default game settings
+# these can be changed in the options menu
+TIME_LIMIT = 300.0 # time limit in seconds
+HORIZONTAL_ROOMS = 5
+VERTICAL_ROOMS = 5
+
+class Treasure(object):
+    def __init__(self, name):
+        self.x = None # the x-coordinate of the treasure; it is null until exposed
+        self.y = None # the y-coordinate of the treasure; it is null until exposed
+        self.name = name # the type of treasure it is
+        self.value = genericClassesAndFunctions.getTreasureValueFromName(name) # the amount of money the treasure is worth
+        self.image = pygame.image.load("images/treasure/" + name + ".png")
+
+class Terrain(object):
+    def __init__(self, roomX, roomY, row, col, name, treasure):
+        self.room = (roomX, roomY) # coordinates of the terrain's room
+        self.row = row # the row the terrain is located at in the room
+        self.col = col # the column the terrain is located at in the room
+        self.name = name # the type of terrain it is (e.g. tree, rock, etc)
+        self.image = pygame.image.load("images/terrain/" + name + ".png")
+        self.gem = gem # the gem included inside the terrain, if any
+
+class Player(object):
+    def __init__(self, x, y, name):
+        self.x = x # the x-coordinate of the player
+        self.y = y # the y-coordinate of the player
+        self.name = name # the player's name, used to determine many things
+        self.image = pygame.image.load("images/characters/" + name + ".png")
+        self.money = 0 # the money the player has gained
+        self.currentTool = genericClassesAndFunctions.getToolFromPlayerName(name) # the tool equipped by the player; initialized to their starting tool
+        self.tools = [self.currentTool]
+
+
+def handleGameEvents():
     for event in pygame.event.get():
         if event.type == QUIT:
             pygame.quit()
@@ -65,7 +100,7 @@ def fHandleGameEvents():
 
             elif event.key == CYCLE_TOOL_RIGHT_KEY:
 
-def fExecuteFrame():
-    fHandleGameEvents()
+def executeFrame():
+    handleGameEvents()
     pygame.display.update()
     CLOCK.tick(FPS)
