@@ -46,10 +46,7 @@ class Treasure(object):
         self.image = pygame.image.load("images/treasure/" + name + ".png")
 
 class Terrain(object):
-    def __init__(self, roomX, roomY, row, col, name, treasure):
-        self.room = (roomX, roomY) # coordinates of the terrain's room
-        self.row = row # the row the terrain is located at in the room
-        self.col = col # the column the terrain is located at in the room
+    def __init__(self, name, treasure):
         self.name = name # the type of terrain it is (e.g. tree, rock, etc)
         self.image = pygame.image.load("images/terrain/" + name + ".png")
         self.gem = gem # the gem included inside the terrain, if any
