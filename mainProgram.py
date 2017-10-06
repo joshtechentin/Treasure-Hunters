@@ -3,13 +3,12 @@
 # Constants are in ALL_CAPS with underscores to separate words
 # Other variables/functions are in camelCase starting with a lowercase letter
 # Classes are in CamelCase starting with a captial letter
-# Local variables declared within a function MUST begin with 'lcl'
 # Give any construct a descriptive name to avoid duplicate names
 
 import pygame, os, pickle, math
 from pygame.locals import *
-from genericClassesAndFunctions import *
-from networkFunctions import *
+from genericClassesAndFunctions import * as gcf
+from networkFunctions import * as nf
 
 pygame.init()
 
@@ -42,7 +41,7 @@ class Treasure(object):
         self.x = None # the x-coordinate of the treasure; it is null until exposed
         self.y = None # the y-coordinate of the treasure; it is null until exposed
         self.name = name # the type of treasure it is
-        self.value = genericClassesAndFunctions.getTreasureValueFromName(name) # the amount of money the treasure is worth
+        self.value = gcf.getTreasureValueFromName(name) # the amount of money the treasure is worth
         self.image = pygame.image.load("images/treasure/" + name + ".png")
 
 class Terrain(object):
@@ -61,7 +60,7 @@ class Player(object):
         self.name = name # the player's name, used to determine many things
         self.image = pygame.image.load("images/characters/" + name + ".png")
         self.money = 0 # the money the player has gained
-        self.currentTool = genericClassesAndFunctions.getToolFromPlayerName(name) # the tool equipped by the player; initialized to their starting tool
+        self.currentTool = gcf.getToolFromPlayerName(name) # the tool equipped by the player; initialized to their starting tool
         self.tools = [self.currentTool]
         self.animationFrame = 0 # keeps track of which image to render in an animation
     def animate(self):
