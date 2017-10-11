@@ -14,7 +14,7 @@ SCREEN_WIDTH = 550
 SCREEN_HEIGHT = 550
 SCREEN_GRID_WIDTH = 11
 SCREEN_GRID_HEIGHT = 11
-SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), FULLSCREEN, 32)
+SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
 pygame.display.set_caption("Treasure Hunters")
 
 CLOCK = pygame.time.Clock()
@@ -36,7 +36,7 @@ cycleToolRightKey = K_s
 # these can be changed in the options menu
 timeLimit = 300.0 # time limit in seconds
 biomesPerMap = 9 # MUST be equal a whole number squared
-biomeSize = 11 # MUST be equal to 3+4n where n is a whole number >= 0
+biomeSize = 27 # MUST be equal to 3+4n where n is a whole number >= 0
 
 # main game variables
 grid = [[]]
@@ -120,14 +120,17 @@ class Player(object):
         self.row = row # the row the player is on on the grid
         self.col = col # the column the players is on on the grid
         self.speed = speed # the speed of the player (in pixels per second)
-        self.movement = self.speed / FPS # the amount of pixels they move each frame
-        self.diagonalMovement = self.movement * math.cos(45) # the amount of pixels they move each frame diagonally
+        self.movement = self.speed // FPS # the amount of pixels they move each frame
+        self.diagonalMovement = int(self.movement * math.cos(45)) # the amount of pixels they move each frame diagonally
+        print(self.diagonalMovement)
         self.direction = [] # keeps track of which direction(s) the player is moving in
-        self.collisionGrid = [[grid[row][col], grid[row][col + 1]], [grid[row + 1][col], grid[row + 1][col + 1]]]
+        self.collisionGrid = [[0] * 3 for i in range(3)]
+        self.updateCollisionGrid()
         self.name = name # the player"s name, used to determine many things
         self.orientation = "front"
         self.animationFrame = 1 # keeps track of which image to render in an animation
         self.image = pygame.image.load("images/characters/" + name + "/" + self.orientation + " " + str(self.animationFrame) + ".png")
+        self.collisionSurface = pygame.surface.Surface((28, 34))
         self.money = 0 # the money the player has gained
         self.currentTool = getToolFromPlayerName(name) # the tool equipped by the player; initialized to their starting tool
         self.tools = [self.currentTool]
@@ -146,55 +149,43 @@ class Player(object):
             
     def checkForCollisions(self):
         self.updateCollisionGrid()
-        #for i in self.collisionGrid:
-        #    for j in i:
-        #        if j.checkIfSolid():
-        #            if self.row * 50 + self.dispX > (j.row * 50) and self.row * 50 < (j.row * 50) + j.image.get_width(): # check if x's overlap
-        #                if self.col * 50 + self.dispY > (j.col * 50) and self.col * 50 < (j.col * 50) + j.image.get_height(): # check if y's overlap
-        #                    if "right" in self.direction and "down" in self.direction:
-        #                        if self.row * 50 + self.dispX - (j.row * 50) < self.col * 50 + self.dispY - (j.col * 50):
-         #                           self.dispX -= self.row * 50 + self.dispX - (j.row * 50)
-          #                      else:
-           #                         self.dispY -= self.col * 50 + self.dispY - (j.col * 50)
-            #                elif "right" in self.direction and "up" in self.direction:
-             #                   if self.x + self.image.get_width() - (j.col * 50) < (j.col * 50) + j.image.get_height() - self.y:
-              #                      self.dispX = (j.row * 50) - self.image.get_width()
-               #                 else:
-                #                    self.dispY = (j.col * 50) + j.image.get_height()
-                 #           elif "right" in self.direction:
-                  #              self.x = (j.row * 50) - self.image.get_width()
-                   #         elif "left" in self.direction and "down" in self.direction:
-                    #            if (j.row * 50) + j.image.get_width() - self.x < self.y + self.image.get_height() - (j.col * 50):
-                     #               self.dispX = (j.row * 50) + j.image.get_width()
-                      #          else:
-                       #             self.dispY = (j.col * 50) - self.image.get_height()
-                        #    elif "left" in self.direction and "up" in self.direction:
-                         #       if (j.row * 50) + j.image.get_width() - self.x < (j.col * 50) + j.image.get_height() - self.y:
-                          #          self.dispX = (j.row * 50) + j.image.get_width()
-                           #     else:
-                            #        self.dispY = (j.col * 50) + j.image.get_height()
-                            #elif "left" in self.direction:
-                            #    self.dispX = (j.row * 50) + j.image.get_width()
-                            #elif "down" in self.direction:
-                            #    self.dispY = (j.col * 50) - self.image.get_height()
-                            #elif "up" in self.direction:
-                            #   self.dispY = (j.col * 50) + j.image.get_height()
-        if self.dispX >= 50:
+        for i in self.collisionGrid:
+            for j in i:
+                if j.checkIfSolid():
+                    leftX = self.row * 50 + self.dispX + 11
+                    rightX = leftX + self.collisionSurface.get_width()
+                    upY = self.col * 50 + self.dispY + 8
+                    downY = upY + self.collisionSurface.get_height()
+                    if rightX > j.row * 50 and leftX < j.row * 50 + 50: # check if x's overlap
+                        if downY > j.col * 50 and upY < j.col * 50 + 50: # check if y's overlap
+                            clipFromLeft = rightX - j.row * 50 # the distance the player has clipped into the left side of the terrain
+                            clipFromRight = j.row * 50 + 50 - leftX # the distance the player has clipped into the right side of the terrain
+                            clipFromAbove = downY - j.col * 50 # the distance the player had clipped into the upper side of the terrain
+                            clipFromBelow = j.col * 50 + 50 - upY # the distance the player has clipped into the lower side of the terrain
+                            if clipFromLeft == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
+                                self.dispX -= clipFromLeft
+                            elif clipFromRight == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
+                                self.dispX += clipFromRight
+                            elif clipFromAbove == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
+                                self.dispY -= clipFromAbove
+                            else:
+                                self.dispY += clipFromBelow
+        if self.dispX >= 25:
             self.row += 1
             if self.row >= len(grid):
                 self.row = 0
             self.dispX -= 50
-        elif self.dispX <= -50:
+        elif self.dispX < -25:
             self.row -= 1
             if self.row < 0:
                 self.row = len(grid) - 1
             self.dispX += 50
-        if self.dispY >= 50:
+        if self.dispY + 8 >= 25:
             self.col += 1
             if self.col >= len(grid[0]):
                 self.col = 0
             self.dispY -= 50
-        elif self.dispY <= -50:
+        elif self.dispY < -25:
             self.col -= 1
             if self.col < 0:
                 self.col = len(grid[0]) - 1
@@ -206,24 +197,31 @@ class Player(object):
         # call when the user has finished moving for the current frame.
         # updates the collision grid with the user"s grid position
         # and the grid square to their right, down, and down-right
-        self.collisionGrid[0][0] = grid[self.row][self.col]
-        # account for world map wrapping
-        if self.row == len(grid) - 1: # check if player is in the rightmost column
-            self.collisionGrid[1][0] = grid[0][self.col]
-            if self.col == len(grid[0]) - 1: # check if the player is at the downmost row
-                self.collisionGrid[0][1] = grid[self.row][0]
-                self.collisionGrid[1][1] = grid[0][0]
-            else:
-                self.collisionGrid[0][1] = grid[self.row][self.col + 1]
-                self.collisionGrid[1][1] = grid[0][self.col + 1]
+
+        self.collisionGrid[0][0] = grid[self.row - 1][self.col - 1]
+        self.collisionGrid[0][1] = grid[self.row - 1][self.col]
+        self.collisionGrid[1][0] = grid[self.row][self.col - 1]
+        self.collisionGrid[1][1] = grid[self.row][self.col]
+        if self.col + 1 >= len(grid[0]):
+            self.collisionGrid[0][2] = grid[self.row - 1][0]
+            self.collisionGrid[1][2] = grid[self.row][0]
         else:
-            self.collisionGrid[1][0] = grid[self.row + 1][self.col]
-            if self.col == len(grid[0]) - 1: # check if the player is at the downmost row
-                self.collisionGrid[0][1] = grid[self.row][0]
-                self.collisionGrid[1][1] = grid[self.row + 1][0]
+            self.collisionGrid[0][2] = grid[self.row - 1][self.col + 1]
+            self.collisionGrid[1][2] = grid[self.row][self.col + 1]
+        if self.row + 1 >= len(grid):
+            self.collisionGrid[2][0] = grid[0][self.col - 1]
+            self.collisionGrid[2][1] = grid[0][self.col]
+            if self.col + 1 >= len(grid[0]):
+                self.collisionGrid[2][2] = grid[0][0]
             else:
-                self.collisionGrid[0][1] = grid[self.row][self.col + 1]
-                self.collisionGrid[1][1] = grid[self.row + 1][self.col + 1]
+                self.collisionGrid[2][2] = grid[0][self.col + 1]
+        else:
+            self.collisionGrid[2][0] = grid[self.row + 1][self.col - 1]
+            self.collisionGrid[2][1] = grid[self.row + 1][self.col]
+            if self.col + 1 >= len(grid[0]):
+                self.collisionGrid[2][2] = grid[self.row + 1][0]
+            else:
+                self.collisionGrid[2][2] = grid[self.row + 1][self.col + 1]
                 
     def move(self):
         # moves player in the direction specified and animates them
@@ -252,9 +250,9 @@ class Player(object):
 
         if len(self.direction) > 0:
             self.animate()
-            self.checkForCollisions()
         else:
             self.animationFrame = 1
+        self.checkForCollisions()
         self.changeImage()
 
 def getPairs(BPM, possibleExits):
@@ -453,7 +451,8 @@ def generateRandomMap(biomesPerMap, tilesPerSide):
     
     return randomMap
 
-grid = generateRandomMap(biomesPerMap, biomeSize) # the main grid containing every piece of terrain and its location
+# the main grid containing every piece of terrain and its location
+grid = [[Terrain(0, 0, "ground", 0)] * biomeSize * int(math.sqrt(biomesPerMap))] * biomeSize * int(math.sqrt(biomesPerMap))
 screenGrid = [[0] * 13 for i in range(13)]
 you = Player(5, 5, 250, "Josh")
 
