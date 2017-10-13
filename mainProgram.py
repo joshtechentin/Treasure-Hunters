@@ -36,7 +36,7 @@ cycleToolRightKey = K_s
 # these can be changed in the options menu
 timeLimit = 300.0 # time limit in seconds
 biomesPerMap = 9 # MUST be equal a whole number squared
-biomeSize = 27 # MUST be equal to 3+4n where n is a whole number >= 0
+biomeSize = 11 # MUST be equal to 3+4n where n is a whole number >= 0
 
 # main game variables
 grid = [[]]
@@ -93,23 +93,19 @@ class Treasure(object):
         self.image = pygame.image.load("images/treasure/" + name + ".png")
 
 class Terrain(object):
-    def __init__(self, row, col, name, treasure):
+    def __init__(self, row, col, name, isSolid, treasure):
         self.row = row
         self.col = col
         self.name = name # the type of terrain it is (e.g. tree, rock, etc)
+        self.isSolid = isSolid
         self.image = pygame.image.load("images/terrain/" + name + ".png")
         self.treasure = treasure # the gem included inside the terrain, if any
     
-    def changeTerrain(self, name):
+    def changeTerrain(self, name, isSolid):
         # changes terrain to a new terrain
         self.name = name
         self.image = pygame.image.load("images/terrain/" + name + ".png")
-    
-    def checkIfSolid(self):
-        # returns if the terrain is solid or not
-        if self.name != "ground":
-            return True
-        return False
+        self.isSolid = isSolid
             
 class Player(object):
     def __init__(self, row, col, speed, name):
@@ -122,7 +118,6 @@ class Player(object):
         self.speed = speed # the speed of the player (in pixels per second)
         self.movement = self.speed // FPS # the amount of pixels they move each frame
         self.diagonalMovement = int(self.movement * math.cos(45)) # the amount of pixels they move each frame diagonally
-        print(self.diagonalMovement)
         self.direction = [] # keeps track of which direction(s) the player is moving in
         self.collisionGrid = [[0] * 3 for i in range(3)]
         self.updateCollisionGrid()
@@ -151,17 +146,17 @@ class Player(object):
         self.updateCollisionGrid()
         for i in self.collisionGrid:
             for j in i:
-                if j.checkIfSolid():
-                    leftX = self.row * 50 + self.dispX + 11
+                if j.isSolid:
+                    leftX = self.col * 50 + self.dispX + 11
                     rightX = leftX + self.collisionSurface.get_width()
-                    upY = self.col * 50 + self.dispY + 8
+                    upY = self.row * 50 + self.dispY + 8
                     downY = upY + self.collisionSurface.get_height()
-                    if rightX > j.row * 50 and leftX < j.row * 50 + 50: # check if x's overlap
-                        if downY > j.col * 50 and upY < j.col * 50 + 50: # check if y's overlap
-                            clipFromLeft = rightX - j.row * 50 # the distance the player has clipped into the left side of the terrain
-                            clipFromRight = j.row * 50 + 50 - leftX # the distance the player has clipped into the right side of the terrain
-                            clipFromAbove = downY - j.col * 50 # the distance the player had clipped into the upper side of the terrain
-                            clipFromBelow = j.col * 50 + 50 - upY # the distance the player has clipped into the lower side of the terrain
+                    if rightX > j.col * 50 and leftX < j.col * 50 + 50: # check if x's overlap
+                        if downY > j.row * 50 and upY < j.row * 50 + 50: # check if y's overlap
+                            clipFromLeft = rightX - j.col * 50 # the distance the player has clipped into the left side of the terrain
+                            clipFromRight = j.col * 50 + 50 - leftX # the distance the player has clipped into the right side of the terrain
+                            clipFromAbove = downY - j.row * 50 # the distance the player had clipped into the upper side of the terrain
+                            clipFromBelow = j.row * 50 + 50 - upY # the distance the player has clipped into the lower side of the terrain
                             if clipFromLeft == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
                                 self.dispX -= clipFromLeft
                             elif clipFromRight == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
@@ -171,24 +166,24 @@ class Player(object):
                             else:
                                 self.dispY += clipFromBelow
         if self.dispX >= 25:
-            self.row += 1
-            if self.row >= len(grid):
-                self.row = 0
-            self.dispX -= 50
-        elif self.dispX < -25:
-            self.row -= 1
-            if self.row < 0:
-                self.row = len(grid) - 1
-            self.dispX += 50
-        if self.dispY + 8 >= 25:
             self.col += 1
             if self.col >= len(grid[0]):
                 self.col = 0
-            self.dispY -= 50
-        elif self.dispY < -25:
+            self.dispX -= 50
+        elif self.dispX < -25:
             self.col -= 1
             if self.col < 0:
                 self.col = len(grid[0]) - 1
+            self.dispX += 50
+        if self.dispY + 8 >= 25:
+            self.row += 1
+            if self.row >= len(grid):
+                self.row = 0
+            self.dispY -= 50
+        elif self.dispY < -25:
+            self.row -= 1
+            if self.row < 0:
+                self.row = len(grid) - 1
             self.dispY += 50
         self.updateCollisionGrid()
         updateScreenGrid()
@@ -322,7 +317,7 @@ def carveMaze(biome):
     for i in range(1, len(biome) - 1, 2):
         for j in range(1, len(biome[0]) - 1):
             if i % 2 == 1 and j % 2 == 1:
-                biome[i][j].changeTerrain("ground")
+                biome[i][j].changeTerrain("ground", False)
                 junctionSets.append({setCounter})
                 setCounter += 1
             elif i % 2 == 1 and j % 2 == 0: # horizontal edge
@@ -350,7 +345,7 @@ def carveMaze(biome):
             elif edge[1] in junction:
                 set2 = junction
         if connected == False:
-            biome[edge[2]][edge[3]].changeTerrain("ground")
+            biome[edge[2]][edge[3]].changeTerrain("ground", False)
             junctionSets.remove(set1)
             junctionSets.remove(set2)
             newJunction = set1.union(set2)
@@ -366,51 +361,51 @@ def generateRandomBiome(tilesPerSide, possibleExits, BPM, paths, num):
     randomBiome = [[0] * tilesPerSide for i in range(tilesPerSide)]
     for i in range(tilesPerSide):
         for j in range(tilesPerSide):
-            randomBiome[i][j] = Terrain(num // int(math.sqrt(BPM)) * tilesPerSide + i, num % int(math.sqrt(BPM)) * tilesPerSide + j, getTerrainFromBiome(biomeName), 0)
+            randomBiome[i][j] = Terrain(num // int(math.sqrt(BPM)) * tilesPerSide + i, num % int(math.sqrt(BPM)) * tilesPerSide + j, getTerrainFromBiome(biomeName), True, 0)
 
     # change all chosen exits to a moveable path
     for path in sorted(paths):
         if paths[path][1]:
             if paths[path][0] == "down":
                 if possibleExits == 1:
-                    randomBiome[tilesPerSide - 1][tilesPerSide // 2].changeTerrain("ground")
+                    randomBiome[tilesPerSide - 1][tilesPerSide // 2].changeTerrain("ground", False)
                 elif possibleExits == 2:
-                    randomBiome[tilesPerSide - 1][tilesPerSide // 3].changeTerrain("ground")
-                    randomBiome[tilesPerSide - 1][tilesPerSide * 2 // 3].changeTerrain("ground")
+                    randomBiome[tilesPerSide - 1][tilesPerSide // 3].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide - 1][tilesPerSide * 2 // 3].changeTerrain("ground", False)
                 else: # defaults to 3
-                    randomBiome[tilesPerSide - 1][tilesPerSide // 4].changeTerrain("ground")
-                    randomBiome[tilesPerSide - 1][tilesPerSide // 2].changeTerrain("ground")
-                    randomBiome[tilesPerSide - 1][tilesPerSide * 3 // 4].changeTerrain("ground")
+                    randomBiome[tilesPerSide - 1][tilesPerSide // 4].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide - 1][tilesPerSide // 2].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide - 1][tilesPerSide * 3 // 4].changeTerrain("ground", False)
             elif paths[path][0] == "up":
                 if possibleExits == 1:
-                    randomBiome[0][tilesPerSide // 2].changeTerrain("ground")
+                    randomBiome[0][tilesPerSide // 2].changeTerrain("ground", False)
                 elif possibleExits == 2:
-                    randomBiome[0][tilesPerSide // 3].changeTerrain("ground")
-                    randomBiome[0][tilesPerSide * 2 // 3].changeTerrain("ground")
+                    randomBiome[0][tilesPerSide // 3].changeTerrain("ground", False)
+                    randomBiome[0][tilesPerSide * 2 // 3].changeTerrain("ground", False)
                 else: # defaults to 3
-                    randomBiome[0][tilesPerSide // 4].changeTerrain("ground")
-                    randomBiome[0][tilesPerSide // 2].changeTerrain("ground")
-                    randomBiome[0][tilesPerSide * 3 // 4].changeTerrain("ground")
+                    randomBiome[0][tilesPerSide // 4].changeTerrain("ground", False)
+                    randomBiome[0][tilesPerSide // 2].changeTerrain("ground", False)
+                    randomBiome[0][tilesPerSide * 3 // 4].changeTerrain("ground", False)
             elif paths[path][0] == "right":
                 if possibleExits == 1:
-                    randomBiome[tilesPerSide // 2][tilesPerSide - 1].changeTerrain("ground")
+                    randomBiome[tilesPerSide // 2][tilesPerSide - 1].changeTerrain("ground", False)
                 elif possibleExits == 2:
-                    randomBiome[tilesPerSide // 3][tilesPerSide // 3].changeTerrain("ground")
-                    randomBiome[tilesPerSide * 2 // 3][tilesPerSide - 1].changeTerrain("ground")
+                    randomBiome[tilesPerSide // 3][tilesPerSide // 3].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide * 2 // 3][tilesPerSide - 1].changeTerrain("ground", False)
                 else: # defaults to 3
-                    randomBiome[tilesPerSide // 4][tilesPerSide - 1].changeTerrain("ground")
-                    randomBiome[tilesPerSide // 2][tilesPerSide - 1].changeTerrain("ground")
-                    randomBiome[tilesPerSide * 3 // 4][tilesPerSide - 1].changeTerrain("ground")
+                    randomBiome[tilesPerSide // 4][tilesPerSide - 1].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide // 2][tilesPerSide - 1].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide * 3 // 4][tilesPerSide - 1].changeTerrain("ground", False)
             else: # defaults to left
                 if possibleExits == 1:
-                    randomBiome[tilesPerSide // 2][0].changeTerrain("ground")
+                    randomBiome[tilesPerSide // 2][0].changeTerrain("ground", False)
                 elif possibleExits == 2:
-                    randomBiome[tilesPerSide // 3][0].changeTerrain("ground")
-                    randomBiome[tilesPerSide * 2 // 3][0].changeTerrain("ground")
+                    randomBiome[tilesPerSide // 3][0].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide * 2 // 3][0].changeTerrain("ground", False)
                 else: # defaults to 3
-                    randomBiome[tilesPerSide // 4][0].changeTerrain("ground")
-                    randomBiome[tilesPerSide // 2][0].changeTerrain("ground")
-                    randomBiome[tilesPerSide * 3 // 4][0].changeTerrain("ground")
+                    randomBiome[tilesPerSide // 4][0].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide // 2][0].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide * 3 // 4][0].changeTerrain("ground", False)
     
     # carve the paths using the recursive backtracking algorithm
     carveMaze(randomBiome)
@@ -452,7 +447,7 @@ def generateRandomMap(biomesPerMap, tilesPerSide):
     return randomMap
 
 # the main grid containing every piece of terrain and its location
-grid = [[Terrain(0, 0, "ground", 0)] * biomeSize * int(math.sqrt(biomesPerMap))] * biomeSize * int(math.sqrt(biomesPerMap))
+grid = [[Terrain(0, 0, "ground", False, 0)] * biomeSize * int(math.sqrt(biomesPerMap))] * biomeSize * int(math.sqrt(biomesPerMap))
 screenGrid = [[0] * 13 for i in range(13)]
 you = Player(5, 5, 250, "Josh")
 
@@ -506,7 +501,20 @@ def handleGameEvents():
                 if "up" not in you.direction:
                     you.direction.append("up")
             elif event.key == useToolKey:
-                pass
+                if you.orientation == "right": # facing right
+                    if you.col == len(grid[0]) - 1: # check if user is at rightmost edge of map, if so, prevent IndexError
+                        grid[you.row][0].changeTerrain("used", False)
+                    else:
+                        grid[you.row][you.col + 1].changeTerrain("used", False)
+                elif you.orientation == "left": # facing left
+                    grid[you.row][you.col - 1].changeTerrain("used", False)
+                elif you.orientation == "front": # facing down
+                    if you.row == len(grid) - 1: # check if user is at downmost edge of map, if so, prevent IndexError
+                        grid[0][you.col].changeTerrain("used", False)
+                    else:
+                        grid[you.row + 1][you.col].changeTerrain("used", False)
+                elif you.orientation == "back": # facing up
+                    grid[you.row - 1][you.col].changeTerrain("used", False)
             elif event.key == cycleToolLeftKey:
                 pass
             elif event.key == cycleToolRightKey:
@@ -570,7 +578,7 @@ def executeGameFrame():
     SCREEN.fill((181, 230, 29))
     for i in range(len(screenGrid)):
         for j in range(len(screenGrid[0])):
-            SCREEN.blit(screenGrid[i][j].image, (50 * (i - 1) - you.dispX, 50 * (j - 1) - you.dispY))
+            SCREEN.blit(screenGrid[i][j].image, (50 * (j - 1) - you.dispX, 50 * (i - 1) - you.dispY))
     SCREEN.blit(you.image, (you.x, you.y))
     pygame.display.update()
     CLOCK.tick(FPS)
@@ -611,7 +619,7 @@ while True:
 
     condition = True
     grid = generateRandomMap(biomesPerMap, biomeSize)
-    you = Player(5, 5, 250, names[currentName].lower())
+    you = Player(biomeSize // 2, biomeSize // 2, 250, names[currentName].lower())
     you.checkForCollisions()
 
     while condition:
