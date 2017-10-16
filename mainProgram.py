@@ -19,6 +19,7 @@ pygame.display.set_caption("Treasure Hunters")
 
 CLOCK = pygame.time.Clock()
 FPS = 30
+timePassed = CLOCK.tick(FPS) / 1000.0
 
 condition = True
 
@@ -41,8 +42,14 @@ biomeSize = 11 # MUST be equal to 3+4n where n is a whole number >= 0
 # main game variables
 grid = [[]]
 you = 0
+currentName = 0
+currentTool = 0
+toolImage = 0
+toolTimer = 0.0 # the length of time the tool image is on screen for
 
-biomes = ["forest", "quarry", "desert", "arctic", "plains"]
+BIOMES = ["forest", "quarry", "desert", "arctic", "plains"]
+NAMES = ["Anthony", "Caitlin", "Josh", "Matt"]
+TOOLS = ["shovel", "axe", "pickaxe"]
 
 def getTreasureValueFromName(name):
     # returns the value of a treasure based on its name
@@ -66,7 +73,7 @@ def getToolFromPlayerName(name):
     elif name == "Anthony":
         return "axe"
     elif name == "Caitlin":
-        return "pickax"
+        return "pickaxe"
     else:
         return "sword"
 
@@ -355,7 +362,7 @@ def carveMaze(biome):
 
 def generateRandomBiome(tilesPerSide, possibleExits, BPM, paths, num):
     # generates a random biome that is a part of the world map (e.g. forest)
-    biomeName = random.choice(biomes)
+    biomeName = random.choice(BIOMES)
     
     # initialize the biome as a 2D list of all 0s
     randomBiome = [[0] * tilesPerSide for i in range(tilesPerSide)]
@@ -469,12 +476,23 @@ def updateScreenGrid():
 
 updateScreenGrid()
 
+def useTool(row, col):
+    if currentTool == "shovel":
+        if grid[row][col].name == "ground":
+            grid[row][col].changeTerrain("used", False)
+    elif currentTool == "axe":
+        if grid[row][col].name == "tree":
+            grid[row][col].changeTerrain("ground", False)
+    elif currentTool == "pickaxe":
+        if grid[row][col].name == "rock":
+            grid[row][col].changeTerrain("ground", False)
+
 def handleMenuEvents():
     # handle the events for the main menu
     pass
 
 def handleGameEvents():
-    global condition
+    global condition, currentTool, toolImage, toolTimer
     for event in pygame.event.get():
         if event.type == QUIT:
             pygame.quit()
@@ -503,22 +521,29 @@ def handleGameEvents():
             elif event.key == useToolKey:
                 if you.orientation == "right": # facing right
                     if you.col == len(grid[0]) - 1: # check if user is at rightmost edge of map, if so, prevent IndexError
-                        grid[you.row][0].changeTerrain("used", False)
+                        useTool(you.row, 0)
                     else:
-                        grid[you.row][you.col + 1].changeTerrain("used", False)
+                        useTool(you.row, you.col + 1)
                 elif you.orientation == "left": # facing left
-                    grid[you.row][you.col - 1].changeTerrain("used", False)
+                    useTool(you.row, you.col - 1)
                 elif you.orientation == "front": # facing down
                     if you.row == len(grid) - 1: # check if user is at downmost edge of map, if so, prevent IndexError
-                        grid[0][you.col].changeTerrain("used", False)
+                        useTool(0, you.col)
                     else:
-                        grid[you.row + 1][you.col].changeTerrain("used", False)
+                        useTool(you.row + 1, you.col)
                 elif you.orientation == "back": # facing up
-                    grid[you.row - 1][you.col].changeTerrain("used", False)
+                    useTool(you.row - 1, you.col)
             elif event.key == cycleToolLeftKey:
-                pass
+                currentTool = TOOLS[TOOLS.index(currentTool) - 1]
+                toolImage = pygame.image.load("images/tools/" + currentTool + ".png")
+                toolTimer = 0.5
             elif event.key == cycleToolRightKey:
-                pass
+                if TOOLS.index(currentTool) == len(TOOLS) - 1:
+                    currentTool = TOOLS[0]
+                else:
+                    currentTool = TOOLS[TOOLS.index(currentTool) + 1]
+                toolImage = pygame.image.load("images/tools/" + currentTool + ".png")
+                toolTimer = 0.5
             elif event.key == K_ESCAPE:
                 condition = False
         elif event.type == KEYUP:
@@ -566,6 +591,7 @@ def handleGameEvents():
                 pass
 
 def executeGameFrame():
+    global toolTimer
     handleGameEvents()
     if "left" in you.direction and "right" in you.direction:
         you.direction.remove("left")
@@ -580,11 +606,15 @@ def executeGameFrame():
         for j in range(len(screenGrid[0])):
             SCREEN.blit(screenGrid[i][j].image, (50 * (j - 1) - you.dispX, 50 * (i - 1) - you.dispY))
     SCREEN.blit(you.image, (you.x, you.y))
+    if toolTimer > 0.0:
+        SCREEN.blit(toolImage, (you.x + 5, you.y - 45))
+    toolTimer -= timePassed
+    if toolTimer < 0.0:
+        toolTimer = 0.0
     pygame.display.update()
     CLOCK.tick(FPS)
 
 title = pygame.image.load("images/Title Card.png")
-names = ["Anthony", "Caitlin", "Josh", "Matt"]
 currentName = 0
 font = pygame.font.SysFont("helvetica", 32)
 
@@ -611,7 +641,7 @@ while True:
                     pygame.quit()
                     os._exit(0)
         SCREEN.blit(title, (0, 0))
-        fontObj = font.render(names[currentName], True, (255, 255, 0), (0, 0, 0))
+        fontObj = font.render(NAMES[currentName], True, (255, 255, 0), (0, 0, 0))
         fontObj.set_colorkey((0, 0, 0))
         SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
         pygame.display.update()
@@ -619,7 +649,8 @@ while True:
 
     condition = True
     grid = generateRandomMap(biomesPerMap, biomeSize)
-    you = Player(biomeSize // 2, biomeSize // 2, 250, names[currentName].lower())
+    you = Player(biomeSize // 2, biomeSize // 2, 250, NAMES[currentName].lower())
+    currentTool = getToolFromPlayerName(NAMES[currentName])
     you.checkForCollisions()
 
     while condition:
