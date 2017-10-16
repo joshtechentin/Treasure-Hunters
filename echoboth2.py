@@ -1,38 +1,61 @@
 import sys, socket
 
-
 question = input("Will you host, join, or quit?: ")
-
+port = 80
 
 if question == "host":
     #Server
-    #print("9877")
-    IPAddr = socket.gethostbyname(socket.gethostname())
+    IPAddr = socket.gethostbyname(socket.getfqdn())
     print("Your IP is: " + IPAddr)
-    port = 9878
     clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    clientSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
     clientSocket.bind((IPAddr, port))
-    clientSocket.listen(1)
-    connection, clientAddress = clientSocket.accept()
-    while True:
-        message = connection.recv(1024).decode()
-        print(message)
-    connection.send(message.encode())
+
+    flag = True
+    while flag:
+        try:
+            clientSocket.settimeout(20) #Time server waits for client in seconds
+            clientSocket.listen(1) 
+            connection, clientAddress = clientSocket.accept() 
+        except socket.timeout:
+            print("Client failed to connect in time.")
+            clientSocket.close()
+            break
+        except:
+            print("\nError as occurred:")
+            raise
+        else:
+            while True:
+                connection.setblocking(1)
+                message = connection.recv(1024).decode()
+                if message != "quit":
+                    print(message)
+                    message = "message received."
+                    connection.send(message.encode())
+                else:
+                    print(message)
+                    connection.send(message.encode())
+                    clientSocket.close()
+                    print("\nServer socket closed. Goodbye!")
+                    break
+            flag = False
 elif question == "join":
-    #port = int(input("What is the port? "))
     #Client
-    #IPAddr = input("What is the IP address of the server? ")
-    IPAddr = "35.40.131.44"
-    port = 9878
+    IPAddr = input("What is the IP address of the server? ")
     serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serverSocket.connect((IPAddr, port))
     while True:
         message = input("Enter a message: ")
-        serverSocket.send(message.encode())
-        message = serverSocket.recv(1024).decode()
-    print(message)
+        if message != "quit":
+            serverSocket.send(message.encode())
+            message = serverSocket.recv(1024).decode()
+            print(message)
+        else:
+            serverSocket.send(message.encode())
+            message = serverSocket.recv(1024).decode()
+            serverSocket.close()
+            print("\nGoodbye!")
+            break
 else:
     print("\nGoodbye!")
-
-
 
