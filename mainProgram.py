@@ -10,6 +10,10 @@ from pygame.locals import *
 
 pygame.init()
 
+WHITE  = (255, 255, 255)
+YELLOW = (255, 255,   0)
+BLACK  = (  0,   0,   0)
+
 SCREEN_WIDTH = 550
 SCREEN_HEIGHT = 550
 SCREEN_GRID_WIDTH = 11
@@ -36,8 +40,8 @@ cycleToolRightKey = K_s
 # default game settings
 # these can be changed in the options menu
 timeLimit = 300.0 # time limit in seconds
-biomesPerMap = 9 # MUST be equal a whole number squared
-biomeSize = 11 # MUST be equal to 3+4n where n is a whole number >= 0
+biomesPerMap = 9 # MUST be equal a whole number squared at least 9
+biomeLength = 11 # MUST be equal to 3+4n where n is a whole number >= 0
 
 # main game variables
 grid = [[]]
@@ -48,6 +52,7 @@ toolImage = 0
 toolTimer = 0.0 # the length of time the tool image is on screen for
 
 BIOMES = ["forest", "quarry", "desert", "arctic", "plains"]
+TREASURE = ["diamond", "emerald", "ruby", "sapphire", "coin"]
 NAMES = ["Anthony", "Caitlin", "Josh", "Matt"]
 TOOLS = ["shovel", "axe", "pickaxe"]
 
@@ -57,12 +62,16 @@ def getTreasureValueFromName(name):
     
     if name == "diamond":
         return 1000
+    elif name == "emerald":
+        return 500
     elif name == "ruby":
+        return 200
+    elif name == "sapphire":
         return 100
-    elif name == "gold coin":
+    elif name == "coin":
         return 10
     else:
-        return 1
+        return 0
 
 def getToolFromPlayerName(name):
     # returns the default tool the given player starts with
@@ -87,17 +96,16 @@ def getTerrainFromBiome(biome):
     elif biome == "desert":
         return "rock"
     elif biome == "arctic":
-        return "ice"
+        return "snowy"
     elif biome == "plains":
-        return "tree"
+        return "water"
 
 class Treasure(object):
     def __init__(self, name):
-        self.x = None # the x-coordinate of the treasure; it is null until exposed
-        self.y = None # the y-coordinate of the treasure; it is null until exposed
         self.name = name # the type of treasure it is
         self.value = getTreasureValueFromName(name) # the amount of money the treasure is worth
-        self.image = pygame.image.load("images/treasure/" + name + ".png")
+        self.image = pygame.image.load("images/treasure/" + name + ".png").convert()
+        self.image.set_colorkey(WHITE) # makes white treasure background transparent
 
 class Terrain(object):
     def __init__(self, row, col, name, isSolid, treasure):
@@ -107,12 +115,16 @@ class Terrain(object):
         self.isSolid = isSolid
         self.image = pygame.image.load("images/terrain/" + name + ".png")
         self.treasure = treasure # the gem included inside the terrain, if any
+        self.isDestroyed = False # determines if terrain has been destroyed by a tool
     
     def changeTerrain(self, name, isSolid):
         # changes terrain to a new terrain
         self.name = name
         self.image = pygame.image.load("images/terrain/" + name + ".png")
         self.isSolid = isSolid
+
+    def changeTreasure(self, treasure):
+        self.treasure = treasure
             
 class Player(object):
     def __init__(self, row, col, speed, name):
@@ -172,6 +184,16 @@ class Player(object):
                                 self.dispY -= clipFromAbove
                             else:
                                 self.dispY += clipFromBelow
+                elif j.isDestroyed and j.treasure != 0:
+                    leftX = self.col * 50 + self.dispX + 11
+                    rightX = leftX + self.collisionSurface.get_width()
+                    upY = self.row * 50 + self.dispY + 8
+                    downY = upY + self.collisionSurface.get_height()
+                    if rightX > j.col * 50 and leftX < j.col * 50 + 50: # check if x's overlap
+                        if downY > j.row * 50 and upY < j.row * 50 + 50: # check if y's overlap
+                            # collided with treasure; collect it
+                            self.money += j.treasure.value
+                            j.treasure = 0
         if self.dispX >= 25:
             self.col += 1
             if self.col >= len(grid[0]):
@@ -256,6 +278,34 @@ class Player(object):
             self.animationFrame = 1
         self.checkForCollisions()
         self.changeImage()
+
+
+def createBiomeTreasure(numberOfTreasures):
+    treasures = []
+    count = 0
+    # half of the terrain has no treasure
+    for i in range(numberOfTreasures // 2):
+        treasures.append(0)
+        count += 1
+    # quarter of the terrain has a coin
+    for i in range(numberOfTreasures // 4):
+        treasures.append(Treasure("coin"))
+        count += 1
+    # eighth of the terrain has a sapphire
+    for i in range(numberOfTreasures // 8):
+        treasures.append(Treasure("sapphire"))
+        count += 1
+    # two sixteenths of the terrain has a ruby or emerald
+    for i in range(numberOfTreasures // 16):
+        treasures.append(Treasure("ruby"))
+        count += 1
+        treasures.append(Treasure("emerald"))
+        count += 1
+    # last treasures are diamonds
+    for i in range(count, numberOfTreasures):
+        treasures.append(Treasure("diamond"))
+    random.shuffle(treasures)
+    return treasures
 
 def getPairs(BPM, possibleExits):
     pairs = {}
@@ -363,12 +413,15 @@ def carveMaze(biome):
 def generateRandomBiome(tilesPerSide, possibleExits, BPM, paths, num):
     # generates a random biome that is a part of the world map (e.g. forest)
     biomeName = random.choice(BIOMES)
+
+    # generates all treasures for the biome
+    treasures = createBiomeTreasure(tilesPerSide * tilesPerSide)
     
     # initialize the biome as a 2D list of all 0s
     randomBiome = [[0] * tilesPerSide for i in range(tilesPerSide)]
     for i in range(tilesPerSide):
         for j in range(tilesPerSide):
-            randomBiome[i][j] = Terrain(num // int(math.sqrt(BPM)) * tilesPerSide + i, num % int(math.sqrt(BPM)) * tilesPerSide + j, getTerrainFromBiome(biomeName), True, 0)
+            randomBiome[i][j] = Terrain(num // int(math.sqrt(BPM)) * tilesPerSide + i, num % int(math.sqrt(BPM)) * tilesPerSide + j, getTerrainFromBiome(biomeName), True, treasures.pop())
 
     # change all chosen exits to a moveable path
     for path in sorted(paths):
@@ -454,7 +507,7 @@ def generateRandomMap(biomesPerMap, tilesPerSide):
     return randomMap
 
 # the main grid containing every piece of terrain and its location
-grid = [[Terrain(0, 0, "ground", False, 0)] * biomeSize * int(math.sqrt(biomesPerMap))] * biomeSize * int(math.sqrt(biomesPerMap))
+grid = [[Terrain(0, 0, "ground", False, 0)] * biomeLength * int(math.sqrt(biomesPerMap))] * biomeLength * int(math.sqrt(biomesPerMap))
 screenGrid = [[0] * 13 for i in range(13)]
 you = Player(5, 5, 250, "Josh")
 
@@ -463,15 +516,15 @@ def updateScreenGrid():
     for i in range(13):
         for j in range(13):
             gridX = you.row - 6 + i
-            if gridX >= biomeSize * int(math.sqrt(biomesPerMap)):
-                gridX -= biomeSize * int(math.sqrt(biomesPerMap))
-            elif gridX <= -biomeSize * int(math.sqrt(biomesPerMap)):
-                gridX += biomeSize * int(math.sqrt(biomesPerMap))
+            if gridX >= biomeLength * int(math.sqrt(biomesPerMap)):
+                gridX -= biomeLength * int(math.sqrt(biomesPerMap))
+            elif gridX <= -biomeLength * int(math.sqrt(biomesPerMap)):
+                gridX += biomeLength * int(math.sqrt(biomesPerMap))
             gridY = you.col - 6 + j
-            if gridY >= biomeSize * int(math.sqrt(biomesPerMap)):
-                gridY -= biomeSize * int(math.sqrt(biomesPerMap))
-            elif gridY <= -biomeSize * int(math.sqrt(biomesPerMap)):
-                gridY += biomeSize * int(math.sqrt(biomesPerMap))
+            if gridY >= biomeLength * int(math.sqrt(biomesPerMap)):
+                gridY -= biomeLength * int(math.sqrt(biomesPerMap))
+            elif gridY <= -biomeLength * int(math.sqrt(biomesPerMap)):
+                gridY += biomeLength * int(math.sqrt(biomesPerMap))
             screenGrid[i][j] = grid[gridX][gridY]
 
 updateScreenGrid()
@@ -480,12 +533,15 @@ def useTool(row, col):
     if currentTool == "shovel":
         if grid[row][col].name == "ground":
             grid[row][col].changeTerrain("used", False)
+            grid[row][col].isDestroyed = True
     elif currentTool == "axe":
         if grid[row][col].name == "tree":
-            grid[row][col].changeTerrain("ground", False)
+            grid[row][col].changeTerrain("used", False)
+            grid[row][col].isDestroyed = True
     elif currentTool == "pickaxe":
         if grid[row][col].name == "rock":
-            grid[row][col].changeTerrain("ground", False)
+            grid[row][col].changeTerrain("used", False)
+            grid[row][col].isDestroyed = True
 
 def handleMenuEvents():
     # handle the events for the main menu
@@ -605,6 +661,8 @@ def executeGameFrame():
     for i in range(len(screenGrid)):
         for j in range(len(screenGrid[0])):
             SCREEN.blit(screenGrid[i][j].image, (50 * (j - 1) - you.dispX, 50 * (i - 1) - you.dispY))
+            if screenGrid[i][j].isDestroyed and screenGrid[i][j].treasure != 0:
+                SCREEN.blit(screenGrid[i][j].treasure.image, (50 * (j - 1) - you.dispX, 50 * (i - 1) - you.dispY))
     SCREEN.blit(you.image, (you.x, you.y))
     if toolTimer > 0.0:
         SCREEN.blit(toolImage, (you.x + 5, you.y - 45))
@@ -641,15 +699,15 @@ while True:
                     pygame.quit()
                     os._exit(0)
         SCREEN.blit(title, (0, 0))
-        fontObj = font.render(NAMES[currentName], True, (255, 255, 0), (0, 0, 0))
-        fontObj.set_colorkey((0, 0, 0))
+        fontObj = font.render(NAMES[currentName], True, YELLOW, BLACK)
+        fontObj.set_colorkey(BLACK)
         SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
         pygame.display.update()
         CLOCK.tick(FPS)
 
     condition = True
-    grid = generateRandomMap(biomesPerMap, biomeSize)
-    you = Player(biomeSize // 2, biomeSize // 2, 250, NAMES[currentName].lower())
+    grid = generateRandomMap(biomesPerMap, biomeLength)
+    you = Player(biomeLength // 2, biomeLength // 2, 250, NAMES[currentName].lower())
     currentTool = getToolFromPlayerName(NAMES[currentName])
     you.checkForCollisions()
 
