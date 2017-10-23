@@ -40,8 +40,8 @@ cycleToolRightKey = K_s
 # default game settings
 # these can be changed in the options menu
 timeLimit = 300.0 # time limit in seconds
-biomesPerMap = 9 # MUST be equal a whole number squared at least 9
-biomeLength = 11 # MUST be equal to 3+4n where n is a whole number >= 0
+biomesPerMap = 25 # MUST be equal a whole number squared at least 9
+biomeLength = 23 # MUST be equal to 3+4n where n is a whole number >= 0
 
 # main game variables
 grid = [[]]
@@ -532,15 +532,15 @@ updateScreenGrid()
 def useTool(row, col):
     if currentTool == "shovel":
         if grid[row][col].name == "ground":
-            grid[row][col].changeTerrain("used", False)
+            grid[row][col].changeTerrain("ground used", False)
             grid[row][col].isDestroyed = True
     elif currentTool == "axe":
         if grid[row][col].name == "tree":
-            grid[row][col].changeTerrain("used", False)
+            grid[row][col].changeTerrain("tree used", False)
             grid[row][col].isDestroyed = True
     elif currentTool == "pickaxe":
         if grid[row][col].name == "rock":
-            grid[row][col].changeTerrain("used", False)
+            grid[row][col].changeTerrain("rock used", False)
             grid[row][col].isDestroyed = True
 
 def handleMenuEvents():
