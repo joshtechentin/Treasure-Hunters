@@ -40,8 +40,8 @@ cycleToolRightKey = K_s
 # default game settings
 # these can be changed in the options menu
 timeLimit = 300.0 # time limit in seconds
-biomesPerMap = 25 # MUST be equal a whole number squared at least 9
-biomeLength = 23 # MUST be equal to 3+4n where n is a whole number >= 0
+biomesPerMap = 9 # MUST be equal a whole number squared at least 9
+biomeLength = 11 # MUST be equal to 3+4n where n is a whole number >= 0
 
 # main game variables
 grid = [[]]
@@ -49,12 +49,42 @@ you = 0
 currentName = 0
 currentTool = 0
 toolImage = 0
+inventoryTimer = 0.0
 toolTimer = 0.0 # the length of time the tool image is on screen for
+
+printDebug = False
 
 BIOMES = ["forest", "quarry", "desert", "arctic", "plains"]
 TREASURE = ["diamond", "emerald", "ruby", "sapphire", "coin"]
 NAMES = ["Anthony", "Caitlin", "Josh", "Matt"]
 TOOLS = ["shovel", "axe", "pickaxe"]
+
+highScore1 = 0
+highScore2 = 0
+highScore3 = 0
+highScore4 = 0
+highScore5 = 0
+
+# attempt to load high scores, catch error if pickle file hasn't been created
+try:
+    scoreFile = open("highScores", "rb")
+    highScore1 = pickle.load(scoreFile)
+    highScore2 = pickle.load(scoreFile)
+    highScore3 = pickle.load(scoreFile)
+    highScore4 = pickle.load(scoreFile)
+    highScore5 = pickle.load(scoreFile)
+    scoreFile.close()
+except IOError:
+    pass
+
+def saveHighScores():
+    file = open("highScores", "wb")
+    pickle.dump(file, highScore1)
+    pickle.dump(file, highScore2)
+    pickle.dump(file, highScore3)
+    pickle.dump(file, highScore4)
+    pickle.dump(file, highScore5)
+    file.close()
 
 def getTreasureValueFromName(name):
     # returns the value of a treasure based on its name
@@ -166,24 +196,47 @@ class Player(object):
         for i in self.collisionGrid:
             for j in i:
                 if j.isSolid:
+                    horizontalWrap = False
+                    verticalWrap = False
                     leftX = self.col * 50 + self.dispX + 11
-                    rightX = leftX + self.collisionSurface.get_width()
+                    if leftX < 0:
+                        leftX += 50 * biomeLength * int(math.sqrt(biomesPerMap))
+                        horizontalWrap = True
+                    rightX = leftX + self.collisionSurface.get_width() - 1
+                    if rightX > 50 * biomeLength * int(math.sqrt(biomesPerMap)):
+                        rightX -= 50 * biomeLength * int(math.sqrt(biomesPerMap))
+                        horizontalWrap = True
                     upY = self.row * 50 + self.dispY + 8
-                    downY = upY + self.collisionSurface.get_height()
-                    if rightX > j.col * 50 and leftX < j.col * 50 + 50: # check if x's overlap
-                        if downY > j.row * 50 and upY < j.row * 50 + 50: # check if y's overlap
-                            clipFromLeft = rightX - j.col * 50 # the distance the player has clipped into the left side of the terrain
-                            clipFromRight = j.col * 50 + 50 - leftX # the distance the player has clipped into the right side of the terrain
-                            clipFromAbove = downY - j.row * 50 # the distance the player had clipped into the upper side of the terrain
-                            clipFromBelow = j.row * 50 + 50 - upY # the distance the player has clipped into the lower side of the terrain
-                            if clipFromLeft == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
-                                self.dispX -= clipFromLeft
-                            elif clipFromRight == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
-                                self.dispX += clipFromRight
-                            elif clipFromAbove == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
-                                self.dispY -= clipFromAbove
+                    if upY < 0:
+                        upY += 50 * biomeLength * int(math.sqrt(biomesPerMap))
+                        verticalWrap = True
+                    downY = upY + self.collisionSurface.get_height() - 1
+                    if downY > 50 * biomeLength * int(math.sqrt(biomesPerMap)):
+                        downY -= 50 * biomeLength * int(math.sqrt(biomesPerMap))
+                        verticalWrap = True
+                    if (rightX >= j.col * 50 or rightX <= self.image.get_width() and horizontalWrap) and (leftX <= j.col * 50 + 50 or leftX > 50 * len(grid) - self.image.get_width() and horizontalWrap): # check if x's overlap
+                        if (downY >= j.row * 50 or downY <= self.image.get_height() and verticalWrap) and (upY <= j.row * 50 + 50 or upY > 50 * len(grid) - self.image.get_height() and verticalWrap): # check if y's overlap
+                            if horizontalWrap:
+                                clipFromLeft = rightX
+                                clipFromRight = 50 * biomeLength * int(math.sqrt(biomesPerMap)) - leftX
                             else:
-                                self.dispY += clipFromBelow
+                                clipFromLeft = rightX - j.col * 50 # the distance the player has clipped into the left side of the terrain
+                                clipFromRight = j.col * 50 + 50 - leftX # the distance the player has clipped into the right side of the terrain
+                            if verticalWrap:
+                                clipFromAbove = downY
+                                clipFromBelow = 50 * biomeLength * int(math.sqrt(biomesPerMap)) - upY
+                            else:
+                                clipFromAbove = downY - j.row * 50 # the distance the player had clipped into the upper side of the terrain
+                                clipFromBelow = j.row * 50 + 50 - upY # the distance the player has clipped into the lower side of the terrain
+                            
+                            if clipFromLeft == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
+                                self.dispX -= clipFromLeft - 1
+                            elif clipFromRight == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
+                                self.dispX += clipFromRight + 1
+                            elif clipFromAbove == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
+                                self.dispY -= clipFromAbove - 1
+                            else:
+                                self.dispY += clipFromBelow + 1
                 elif j.isDestroyed and j.treasure != 0:
                     leftX = self.col * 50 + self.dispX + 11
                     rightX = leftX + self.collisionSurface.get_width()
@@ -422,7 +475,7 @@ def generateRandomBiome(tilesPerSide, possibleExits, BPM, paths, num):
     for i in range(tilesPerSide):
         for j in range(tilesPerSide):
             randomBiome[i][j] = Terrain(num // int(math.sqrt(BPM)) * tilesPerSide + i, num % int(math.sqrt(BPM)) * tilesPerSide + j, getTerrainFromBiome(biomeName), True, treasures.pop())
-
+    
     # change all chosen exits to a moveable path
     for path in sorted(paths):
         if paths[path][1]:
@@ -529,6 +582,37 @@ def updateScreenGrid():
 
 updateScreenGrid()
 
+def showInventory():
+    global inventoryTimer
+    while inventoryTimer > 0.0:
+        shov = pygame.image.load("tools/shovel.png")
+        ax = pygame.image.load("tools/axe.png")
+        pickax = pygame.image.load("tools/pickaxe.png")
+        shov1 = pygame.image.load("tools/shovel 1.png")
+        ax1 = pygame.image.load("tools/axe 1.png")
+        pickax1 = pygame.image.load("tools/pickaxe 1.png")
+        for tool in TOOLS:
+            if tool == "shovel" and tool == currentTool:
+                SCREEN.blit(shov, (50, 500))
+            elif tool == "shovel" and tool != currentTool:
+                SCREEN.blit(shov1, (50, 500))
+            if tool == "axe" and tool == currentTool:
+                SCREEN.blit(ax, (100, 500))
+            if tool == "axe" and tool != currentTool:
+                SCREEN.blit(ax1, (100, 500))
+            if tool == "pickaxe" and tool == currentTool:
+                SCREEN.blit(pickax, (150, 500))
+            if tool == "pickaxe" and tool != currentTool:
+                SCREEN.blit(pickax1, (150, 500))
+        ##pygame.display.update()
+
+        
+    if inventoryTimer < 0.0:
+        inventoryTimer = 0
+    ##pygame.display.update()
+    
+    ##CLOCK.tick(FPS)
+
 def useTool(row, col):
     if currentTool == "shovel":
         if grid[row][col].name == "ground":
@@ -548,7 +632,7 @@ def handleMenuEvents():
     pass
 
 def handleGameEvents():
-    global condition, currentTool, toolImage, toolTimer
+    global condition, currentTool, toolImage, toolTimer, printDebug
     for event in pygame.event.get():
         if event.type == QUIT:
             pygame.quit()
@@ -593,6 +677,7 @@ def handleGameEvents():
                 currentTool = TOOLS[TOOLS.index(currentTool) - 1]
                 toolImage = pygame.image.load("images/tools/" + currentTool + ".png")
                 toolTimer = 0.5
+                inventoryTimer = 0.5
             elif event.key == cycleToolRightKey:
                 if TOOLS.index(currentTool) == len(TOOLS) - 1:
                     currentTool = TOOLS[0]
@@ -600,8 +685,11 @@ def handleGameEvents():
                     currentTool = TOOLS[TOOLS.index(currentTool) + 1]
                 toolImage = pygame.image.load("images/tools/" + currentTool + ".png")
                 toolTimer = 0.5
+                inventoryTimer = 0.5
             elif event.key == K_ESCAPE:
                 condition = False
+            elif event.key == K_x:
+                printDebug = True
         elif event.type == KEYUP:
             if event.key == moveLeftKey:
                 if "left" in you.direction:
@@ -645,9 +733,11 @@ def handleGameEvents():
                 pass
             elif event.key == cycleToolRightKey:
                 pass
+            elif event.key == K_x:
+                printDebug = False
 
 def executeGameFrame():
-    global toolTimer
+    global timeLimit, toolTimer, inventoryTimer
     handleGameEvents()
     if "left" in you.direction and "right" in you.direction:
         you.direction.remove("left")
@@ -669,6 +759,10 @@ def executeGameFrame():
     toolTimer -= timePassed
     if toolTimer < 0.0:
         toolTimer = 0.0
+    if inventoryTimer > 0.0:
+        showInventory()
+    if inventoryTimer < 0.0:
+        inventoryTimer = 0.0
     pygame.display.update()
     CLOCK.tick(FPS)
 
