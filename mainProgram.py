@@ -5,7 +5,7 @@
 # Classes are in CamelCase starting with a captial letter
 # Give any construct a descriptive name to avoid duplicate names
 
-import pygame, os, pickle, math, random, socket
+import pygame, os, pickle, math, random, socket, time
 import networkFunctions as nf
 from pygame.locals import *
 
@@ -740,6 +740,53 @@ def handleGameEvents():
             elif event.key == K_x:
                 printDebug = False
 
+def characterSelection():
+    global biomesPerMap, biomeLength, condition, currentTool, grid, you
+    currentName = 0
+    while True:
+        while condition:
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    os._exit(0)
+                elif event.type == KEYDOWN:
+                    if event.key == moveLeftKey:
+                        if currentName == 0:
+                            currentName = 3
+                        else:
+                            currentName -= 1
+                    elif event.key == moveRightKey:
+                        if currentName == 3:
+                            currentName = 0
+                        else:
+                            currentName += 1
+                    elif event.key == useToolKey:
+                        condition = False
+                    elif event.key == K_ESCAPE:
+                        pygame.quit()
+                        os._exit(0)
+            printTextToScreen(NAMES[currentName])
+
+        condition = True
+        grid = generateRandomMap(biomesPerMap, biomeLength)
+        you = Player(biomeLength // 2, biomeLength // 2, 250, NAMES[currentName].lower())
+        currentTool = getToolFromPlayerName(NAMES[currentName])
+        you.checkForCollisions()
+
+        while condition:
+            executeGameFrame()
+            
+        condition = True
+
+
+def printTextToScreen(textString):
+    SCREEN.blit(title, (0, 0))
+    fontObj = font.render(textString, True, YELLOW, BLACK)
+    fontObj.set_colorkey(BLACK)
+    SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
+    pygame.display.update()
+    CLOCK.tick(FPS)
+
 def executeGameFrame():
     global timeLimit, toolTimer, inventoryTimer
     handleGameEvents()
@@ -771,9 +818,10 @@ def executeGameFrame():
     CLOCK.tick(FPS)
 
 title = pygame.image.load("images/Title Card.png")
-selection = 0
 font = pygame.font.SysFont("helvetica", 32)
+
 gameSelection = True
+selection = 0
 while True:
     while gameSelection:
         for event in pygame.event.get():
@@ -791,54 +839,10 @@ while True:
                 elif event.key == K_ESCAPE:
                     pygame.quit()
                     os._exit(0)
-        SCREEN.blit(title, (0, 0))
-        fontObj = font.render(MENU_OPTIONS[selection], True, YELLOW, BLACK)
-        fontObj.set_colorkey(BLACK)
-        SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-        pygame.display.update()
-        CLOCK.tick(FPS)
+        printTextToScreen(MENU_OPTIONS[selection])
 
     if selection == 0:
-        currentName = 0
-        while True:
-            while condition:
-                for event in pygame.event.get():
-                    if event.type == QUIT:
-                        pygame.quit()
-                        os._exit(0)
-                    elif event.type == KEYDOWN:
-                        if event.key == moveLeftKey:
-                            if currentName == 0:
-                                currentName = 3
-                            else:
-                                currentName -= 1
-                        elif event.key == moveRightKey:
-                            if currentName == 3:
-                                currentName = 0
-                            else:
-                                currentName += 1
-                        elif event.key == useToolKey:
-                            condition = False
-                        elif event.key == K_ESCAPE:
-                            pygame.quit()
-                            os._exit(0)
-                SCREEN.blit(title, (0, 0))      
-                fontObj = font.render(NAMES[currentName], True, YELLOW, BLACK)
-                fontObj.set_colorkey(BLACK)
-                SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                pygame.display.update()
-                CLOCK.tick(FPS)
-
-            condition = True
-            grid = generateRandomMap(biomesPerMap, biomeLength)
-            you = Player(biomeLength // 2, biomeLength // 2, 250, NAMES[currentName].lower())
-            currentTool = getToolFromPlayerName(NAMES[currentName])
-            you.checkForCollisions()
-
-            while condition:
-                executeGameFrame()
-
-            condition = True
+        characterSelection()
 
     elif selection == 1:
         selection = 0
@@ -860,45 +864,53 @@ while True:
                             pygame.quit()
                             os._exit(0)
                 SCREEN.blit(title, (0, 0))
-                fontObj = font.render(" Host a game or join a game?", True, YELLOW, BLACK)
+                fontObj = font.render("Host a game or join a game?", True, YELLOW, BLACK)
                 fontObj.set_colorkey(BLACK)
-                SCREEN.blit(fontObj, (SCREEN_HEIGHT / 10, SCREEN_WIDTH / 2))
+                SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
                 fontObj2 = font.render(OPTIONS[selection], True, YELLOW, BLACK)
                 fontObj2.set_colorkey(BLACK)
-                SCREEN.blit(fontObj2, (SCREEN_HEIGHT / 2.5, SCREEN_WIDTH / 1.75))
+                SCREEN.blit(fontObj2, (SCREEN_WIDTH // 2 - fontObj2.get_width() // 2, 450))
                 pygame.display.update()
                 CLOCK.tick(FPS)
 
             if selection == 0:
                 #Start server
                 IPAddr = nf.fGetIP()
-                SCREEN.blit(title, (0, 0))
-                fontObj = font.render(("Your IP is: " + IPAddr), True, YELLOW, BLACK)
-                fontObj.set_colorkey(BLACK)
-                SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                pygame.display.update()
-                CLOCK.tick(FPS)
+                printTextToScreen("Your IP is: " + IPAddr)
                 serverSocket = nf.fCreateServer(PORT)
-                serverConnection = nf.fCreateConnection(serverSocket) 
 
-                
-                SCREEN.blit(title, (0, 0))
-                fontObj = font.render("Client connected.", True, YELLOW, BLACK)
-                fontObj.set_colorkey(BLACK)
-                SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                pygame.display.update()
+                flag = True
+                while flag:
+                    try:
+                        serverSocket.settimeout(5) #Time server waits for client to connect
+                        serverConnection = nf.fCreateConnection(serverSocket)
+                    except socket.timeout:
+                        printTextToScreen("Client failed to connect.")
+                        time.sleep(5)
+                        nf.fCloseServer(serverSocket)
+                        pygame.quit()
+                        os._exit(0)
+                        break
+                    except:
+                        raise
+                    else:
+                        printTextToScreen("Client connected.")
 
-                nf.fCloseServer(serverSocket) #this is for debugging
+                        nf.fSendToClient(serverConnection, "connected")
+
+                        time.sleep(5)
+                        nf.fCloseServer(serverSocket) #this is for debugging
+                        pygame.quit()
+                        os._exit(0)
                         
-                #send/receive here
-                        
-
+                        #send/receive here
+                        flag = False
             elif selection == 1:
                 #Start client
-                SCREEN.blit(title, (0, 0))
-                fontObj = font.render("What is the host's IP?", True, YELLOW, BLACK)
-                fontObj.set_colorkey(BLACK)
-                SCREEN.blit(fontObj, (SCREEN_HEIGHT / 10, SCREEN_WIDTH / 2))
+                printTextToScreen("What is the host's IP?")
+                pygame.draw.rect(SCREEN, (0,0,0), (100,450,345,35))
+                pygame.display.update()
+                CLOCK.tick(FPS)
                 ipString = []
                 while True:
                     while True:
@@ -906,6 +918,9 @@ while True:
                         if event.type == KEYDOWN:
                             inkey = event.key
                             break
+                        elif event.type == QUIT:
+                            pygame.quit()
+                            os._exit(0)
                         else:
                             pass
                     if inkey == K_BACKSPACE:
@@ -914,22 +929,25 @@ while True:
                         break
                     elif inkey <= 127:
                         ipString.append(chr(inkey))
-                    ipS = ''.join(ipString)
-                    fontObj2 = font.render(ipS, True, YELLOW, BLACK)
+                    ipStr = ''.join(ipString)
+                    fontObj2 = font.render(ipStr, True, YELLOW, BLACK)
                     fontObj2.set_colorkey(BLACK)
-                    SCREEN.blit(fontObj2, (SCREEN_HEIGHT / 2.5, SCREEN_WIDTH / 1.75))
+                    pygame.draw.rect(SCREEN, (0,0,0), (100,450,350,35)) 
+                    SCREEN.blit(fontObj2, (SCREEN_WIDTH // 2 - fontObj2.get_width() // 2, 450))
                     pygame.display.update()
                     CLOCK.tick(FPS)
 
-                clientSocket = nf.fCreateClient(ipS, PORT)
-                SCREEN.blit(title, (0, 0))
-                fontObj = font.render("Client connected.", True, YELLOW, BLACK)
-                fontObj.set_colorkey(BLACK)
-                SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                pygame.display.update()
-
+                clientSocket = nf.fCreateClient(ipStr, PORT)
+                printTextToScreen("Connecting...")
+                data = nf.fReceiveFromServer(clientSocket)
+                if data == "connected":
+                    printTextToScreen("Successfully connected.")
+                #else:
+                    
                 nf.fCloseClient(clientSocket)  #this is for debugging
-                
+                time.sleep(5)
+                pygame.quit()
+                os._exit(0)
         
 
 
