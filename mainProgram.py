@@ -15,11 +15,12 @@ WHITE  = (255, 255, 255)
 YELLOW = (255, 255,   0)
 BLACK  = (  0,   0,   0)
 
-SCREEN_WIDTH = 550
+BORDER_WIDTH = 200
+SCREEN_WIDTH = 550 + BORDER_WIDTH * 2
 SCREEN_HEIGHT = 550
 SCREEN_GRID_WIDTH = 11
 SCREEN_GRID_HEIGHT = 11
-SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
+SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), FULLSCREEN, 32)
 pygame.display.set_caption("Treasure Hunters")
 
 CLOCK = pygame.time.Clock()
@@ -28,8 +29,7 @@ timePassed = CLOCK.tick(FPS) / 1000.0
 
 condition = True
 
-# default key values
-# these can be changed in the options menu
+# key values
 moveLeftKey = K_LEFT
 moveRightKey = K_RIGHT
 moveDownKey = K_DOWN
@@ -40,28 +40,36 @@ cycleToolRightKey = K_s
 
 # default game settings
 # these can be changed in the options menu
-timeLimit = 300.0 # time limit in seconds
 biomesPerMap = 9 # MUST be equal a whole number squared at least 9
 biomeLength = 11 # MUST be equal to 3+4n where n is a whole number >= 0
 
 # main game variables
 grid = [[]]
-you = 0
+you = 0 # you the player
+them = 0 # the other player
+isMultiplayer = False
+isHost = False # determines if you are server or client for multiplayer
 currentName = 0
 currentTool = 0
 toolImage = 0
+timeLimit = 180.0 # time limit in seconds
 inventoryTimer = 0.0
 toolTimer = 0.0 # the length of time the tool image is on screen for
+toolInUse = False
+gameTimer = 0.0
 
-printDebug = False
-
-BIOMES = ["forest", "quarry", "desert", "arctic", "plains"]
+BIOMES = ["forest", "quarry", "arctic", "plains"]
 TREASURE = ["diamond", "emerald", "ruby", "sapphire", "coin"]
 NAMES = ["Anthony", "Caitlin", "Josh", "Matt"]
 TOOLS = ["shovel", "axe", "pickaxe"]
-MENU_OPTIONS = ["Single Player", "Multiplayer"]
+MENU_OPTIONS = ["Single Player", "Multiplayer", "High Scores", "Settings", "Exit"]
 OPTIONS = ["Host a game", "Join a game"]
 PORT = 80
+
+anthonyStartLocation = 0
+caitlinStartLocation = 0
+joshStartLocation = 0
+mattStartLocation = 0
 
 highScore1 = 0
 highScore2 = 0
@@ -71,7 +79,7 @@ highScore5 = 0
 
 # attempt to load high scores, catch error if pickle file hasn't been created
 try:
-    scoreFile = open("highScores", "rb")
+    scoreFile = open("highScores", 'rb')
     highScore1 = pickle.load(scoreFile)
     highScore2 = pickle.load(scoreFile)
     highScore3 = pickle.load(scoreFile)
@@ -81,13 +89,28 @@ try:
 except IOError:
     pass
 
+# attempt to load default settings, catch error if pickle file hasn't been created
+try:
+    settingsFile = open("settings", 'rb')
+    biomesPerMap = pickle.load(settingsFile)
+    biomeLength = pickle.load(settingsFile)
+    settingsFile.close()
+except IOError:
+    pass
+
 def saveHighScores():
-    file = open("highScores", "wb")
-    pickle.dump(file, highScore1)
-    pickle.dump(file, highScore2)
-    pickle.dump(file, highScore3)
-    pickle.dump(file, highScore4)
-    pickle.dump(file, highScore5)
+    file = open("highScores", 'wb')
+    pickle.dump(highScore1, file)
+    pickle.dump(highScore2, file)
+    pickle.dump(highScore3, file)
+    pickle.dump(highScore4, file)
+    pickle.dump(highScore5, file)
+    file.close()
+
+def saveSettings():
+    file = open("settings", 'wb')
+    pickle.dump(biomesPerMap, file)
+    pickle.dump(biomeLength, file)
     file.close()
 
 def getTreasureValueFromName(name):
@@ -118,7 +141,7 @@ def getToolFromPlayerName(name):
     elif name == "Caitlin":
         return "pickaxe"
     else:
-        return "sword"
+        return "shovel"
 
 def getTerrainFromBiome(biome):
     # returns the terrain associated with the specified biome
@@ -130,7 +153,7 @@ def getTerrainFromBiome(biome):
     elif biome == "desert":
         return "rock"
     elif biome == "arctic":
-        return "snowy"
+        return "ice"
     elif biome == "plains":
         return "water"
 
@@ -162,7 +185,7 @@ class Terrain(object):
             
 class Player(object):
     def __init__(self, row, col, speed, name):
-        self.x = 250
+        self.x = 250 + BORDER_WIDTH
         self.y = 250
         self.dispX = 0 # the amount of horizontal displacement the player experiences relative to the grid square
         self.dispY = 0 # the amount of vertical displacement the player experiences relative to the grid square
@@ -182,6 +205,7 @@ class Player(object):
         self.money = 0 # the money the player has gained
         self.currentTool = getToolFromPlayerName(name) # the tool equipped by the player; initialized to their starting tool
         self.tools = [self.currentTool]
+        self.toolAnimation = 0 # determines the animation frame of the tool being used
 
     def changeOrientation(self, orientation):
         self.orientation = orientation
@@ -308,26 +332,34 @@ class Player(object):
         # moves player in the direction specified and animates them
         # if the direction is a compass direction, they move far
         # if the direction is a diagonal, they move less (picture unit circle)
-        if "right" in self.direction and "down" in self.direction:
-            self.dispX += self.diagonalMovement
-            self.dispY += self.diagonalMovement
-        elif "right" in self.direction and "up" in self.direction:
-            self.dispX += self.diagonalMovement
-            self.dispY -= self.diagonalMovement
-        elif "right" in self.direction:
-            self.dispX += self.movement
-        elif "left" in self.direction and "down" in self.direction:
-            self.dispX -= self.diagonalMovement
-            self.dispY += self.diagonalMovement
-        elif "left" in self.direction and "up" in self.direction:
-            self.dispX -= self.diagonalMovement
-            self.dispY -= self.diagonalMovement
-        elif "left" in self.direction:
-            self.dispX -= self.movement
-        elif "down" in self.direction:
-            self.dispY += self.movement
-        elif "up" in self.direction:
-            self.dispY -= self.movement
+        global toolInUse
+        if toolInUse:
+            if self.toolAnimation == 3:
+                self.toolAnimation = 0
+                toolInUse = False
+            else:
+                self.toolAnimation += 1
+        if toolInUse == False:
+            if "right" in self.direction and "down" in self.direction:
+                self.dispX += self.diagonalMovement
+                self.dispY += self.diagonalMovement
+            elif "right" in self.direction and "up" in self.direction:
+                self.dispX += self.diagonalMovement
+                self.dispY -= self.diagonalMovement
+            elif "right" in self.direction:
+                self.dispX += self.movement
+            elif "left" in self.direction and "down" in self.direction:
+                self.dispX -= self.diagonalMovement
+                self.dispY += self.diagonalMovement
+            elif "left" in self.direction and "up" in self.direction:
+                self.dispX -= self.diagonalMovement
+                self.dispY -= self.diagonalMovement
+            elif "left" in self.direction:
+                self.dispX -= self.movement
+            elif "down" in self.direction:
+                self.dispY += self.movement
+            elif "up" in self.direction:
+                self.dispY -= self.movement
 
         if len(self.direction) > 0:
             self.animate()
@@ -418,7 +450,7 @@ def determineBiomePaths(pairs, BPM, possibleExits):
             lastPair = pair
     return pairs
 
-def carveMaze(biome):
+def carveMaze(biome, defaultTerrain):
     # method to carve a maze out of a biome
     # uses a modified version of Kruskal's algorithm
 
@@ -431,7 +463,7 @@ def carveMaze(biome):
     for i in range(1, len(biome) - 1, 2):
         for j in range(1, len(biome[0]) - 1):
             if i % 2 == 1 and j % 2 == 1:
-                biome[i][j].changeTerrain("ground", False)
+                biome[i][j].changeTerrain(defaultTerrain, False)
                 junctionSets.append({setCounter})
                 setCounter += 1
             elif i % 2 == 1 and j % 2 == 0: # horizontal edge
@@ -459,7 +491,7 @@ def carveMaze(biome):
             elif edge[1] in junction:
                 set2 = junction
         if connected == False:
-            biome[edge[2]][edge[3]].changeTerrain("ground", False)
+            biome[edge[2]][edge[3]].changeTerrain(defaultTerrain, False)
             junctionSets.remove(set1)
             junctionSets.remove(set2)
             newJunction = set1.union(set2)
@@ -467,12 +499,15 @@ def carveMaze(biome):
 
     return biome
 
-def generateRandomBiome(tilesPerSide, possibleExits, BPM, paths, num):
-    # generates a random biome that is a part of the world map (e.g. forest)
-    biomeName = random.choice(BIOMES)
-
+def generateRandomBiome(biomeName, tilesPerSide, possibleExits, BPM, paths, num):
     # generates all treasures for the biome
     treasures = createBiomeTreasure(tilesPerSide * tilesPerSide)
+
+    defaultTerrain = ""
+    if biomeName == "arctic":
+        defaultTerrain = "snowy"
+    else:
+        defaultTerrain = "ground"
     
     # initialize the biome as a 2D list of all 0s
     randomBiome = [[0] * tilesPerSide for i in range(tilesPerSide)]
@@ -485,47 +520,47 @@ def generateRandomBiome(tilesPerSide, possibleExits, BPM, paths, num):
         if paths[path][1]:
             if paths[path][0] == "down":
                 if possibleExits == 1:
-                    randomBiome[tilesPerSide - 1][tilesPerSide // 2].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide - 1][tilesPerSide // 2].changeTerrain(defaultTerrain, False)
                 elif possibleExits == 2:
-                    randomBiome[tilesPerSide - 1][tilesPerSide // 3].changeTerrain("ground", False)
-                    randomBiome[tilesPerSide - 1][tilesPerSide * 2 // 3].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide - 1][tilesPerSide // 3].changeTerrain(defaultTerrain, False)
+                    randomBiome[tilesPerSide - 1][tilesPerSide * 2 // 3].changeTerrain(defaultTerrain, False)
                 else: # defaults to 3
-                    randomBiome[tilesPerSide - 1][tilesPerSide // 4].changeTerrain("ground", False)
-                    randomBiome[tilesPerSide - 1][tilesPerSide // 2].changeTerrain("ground", False)
-                    randomBiome[tilesPerSide - 1][tilesPerSide * 3 // 4].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide - 1][tilesPerSide // 4].changeTerrain(defaultTerrain, False)
+                    randomBiome[tilesPerSide - 1][tilesPerSide // 2].changeTerrain(defaultTerrain, False)
+                    randomBiome[tilesPerSide - 1][tilesPerSide * 3 // 4].changeTerrain(defaultTerrain, False)
             elif paths[path][0] == "up":
                 if possibleExits == 1:
-                    randomBiome[0][tilesPerSide // 2].changeTerrain("ground", False)
+                    randomBiome[0][tilesPerSide // 2].changeTerrain(defaultTerrain, False)
                 elif possibleExits == 2:
-                    randomBiome[0][tilesPerSide // 3].changeTerrain("ground", False)
-                    randomBiome[0][tilesPerSide * 2 // 3].changeTerrain("ground", False)
+                    randomBiome[0][tilesPerSide // 3].changeTerrain(defaultTerrain, False)
+                    randomBiome[0][tilesPerSide * 2 // 3].changeTerrain(defaultTerrain, False)
                 else: # defaults to 3
-                    randomBiome[0][tilesPerSide // 4].changeTerrain("ground", False)
-                    randomBiome[0][tilesPerSide // 2].changeTerrain("ground", False)
-                    randomBiome[0][tilesPerSide * 3 // 4].changeTerrain("ground", False)
+                    randomBiome[0][tilesPerSide // 4].changeTerrain(defaultTerrain, False)
+                    randomBiome[0][tilesPerSide // 2].changeTerrain(defaultTerrain, False)
+                    randomBiome[0][tilesPerSide * 3 // 4].changeTerrain(defaultTerrain, False)
             elif paths[path][0] == "right":
                 if possibleExits == 1:
-                    randomBiome[tilesPerSide // 2][tilesPerSide - 1].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide // 2][tilesPerSide - 1].changeTerrain(defaultTerrain, False)
                 elif possibleExits == 2:
-                    randomBiome[tilesPerSide // 3][tilesPerSide // 3].changeTerrain("ground", False)
-                    randomBiome[tilesPerSide * 2 // 3][tilesPerSide - 1].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide // 3][tilesPerSide // 3].changeTerrain(defaultTerrain, False)
+                    randomBiome[tilesPerSide * 2 // 3][tilesPerSide - 1].changeTerrain(defaultTerrain, False)
                 else: # defaults to 3
-                    randomBiome[tilesPerSide // 4][tilesPerSide - 1].changeTerrain("ground", False)
-                    randomBiome[tilesPerSide // 2][tilesPerSide - 1].changeTerrain("ground", False)
-                    randomBiome[tilesPerSide * 3 // 4][tilesPerSide - 1].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide // 4][tilesPerSide - 1].changeTerrain(defaultTerrain, False)
+                    randomBiome[tilesPerSide // 2][tilesPerSide - 1].changeTerrain(defaultTerrain, False)
+                    randomBiome[tilesPerSide * 3 // 4][tilesPerSide - 1].changeTerrain(defaultTerrain, False)
             else: # defaults to left
                 if possibleExits == 1:
-                    randomBiome[tilesPerSide // 2][0].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide // 2][0].changeTerrain(defaultTerrain, False)
                 elif possibleExits == 2:
-                    randomBiome[tilesPerSide // 3][0].changeTerrain("ground", False)
-                    randomBiome[tilesPerSide * 2 // 3][0].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide // 3][0].changeTerrain(defaultTerrain, False)
+                    randomBiome[tilesPerSide * 2 // 3][0].changeTerrain(defaultTerrain, False)
                 else: # defaults to 3
-                    randomBiome[tilesPerSide // 4][0].changeTerrain("ground", False)
-                    randomBiome[tilesPerSide // 2][0].changeTerrain("ground", False)
-                    randomBiome[tilesPerSide * 3 // 4][0].changeTerrain("ground", False)
+                    randomBiome[tilesPerSide // 4][0].changeTerrain(defaultTerrain, False)
+                    randomBiome[tilesPerSide // 2][0].changeTerrain(defaultTerrain, False)
+                    randomBiome[tilesPerSide * 3 // 4][0].changeTerrain(defaultTerrain, False)
     
     # carve the paths using the recursive backtracking algorithm
-    carveMaze(randomBiome)
+    carveMaze(randomBiome, defaultTerrain)
     
     return randomBiome
 
@@ -535,6 +570,38 @@ def generateRandomMap(biomesPerMap, tilesPerSide):
     # initialize the map and a list of biomes
     randomMap = []
     generatedBiomes = []
+    biomeTypes = []
+
+    if biomesPerMap == 9:
+        biomeTypes.append("forest")
+        biomeTypes.append("forest")
+        biomeTypes.append("quarry")
+        biomeTypes.append("quarry")
+        biomeTypes.append("arctic")
+        biomeTypes.append("arctic")
+        biomeTypes.append("plains")
+        biomeTypes.append("plains")
+        biomeTypes.append(random.choice(BIOMES))
+    elif biomesPerMap == 16:
+        for i in range(4):
+            biomeTypes.append("forest")
+        for i in range(4):
+            biomeTypes.append("quarry")
+        for i in range(4):
+            biomeTypes.append("arctic")
+        for i in range(4):
+            biomeTypes.append("plains")
+    elif biomesPerMap == 25:
+        for i in range(6):
+            biomeTypes.append("forest")
+        for i in range(6):
+            biomeTypes.append("quarry")
+        for i in range(6):
+            biomeTypes.append("arctic")
+        for i in range(6):
+            biomeTypes.append("plains")
+        biomeTypes.append(random.choice(BIOMES))
+    random.shuffle(biomeTypes)
 
     # determine number of exits from biome (default to 1)
     possibleExits = 1
@@ -552,7 +619,7 @@ def generateRandomMap(biomesPerMap, tilesPerSide):
         for pair in sorted(biomePaths):
             if pair[0] == i:
                 relevantPaths[pair] = biomePaths[pair]
-        generatedBiomes.append(generateRandomBiome(tilesPerSide, possibleExits, biomesPerMap, relevantPaths, i))
+        generatedBiomes.append(generateRandomBiome(biomeTypes[i], tilesPerSide, possibleExits, biomesPerMap, relevantPaths, i))
     
     for i in range(biomesPerMap):
         for j in range(len(generatedBiomes[i])):
@@ -618,25 +685,26 @@ def showInventory():
     ##CLOCK.tick(FPS)
 
 def useTool(row, col):
+    global toolInUse
+    toolInUse = True
     if currentTool == "shovel":
         if grid[row][col].name == "ground":
-            grid[row][col].changeTerrain("ground used", False)
+            grid[row][col].changeTerrain("dug up grass", False)
+            grid[row][col].isDestroyed = True
+        elif grid[row][col].name == "snowy":
+            grid[row][col].changeTerrain("dug up snow", False)
             grid[row][col].isDestroyed = True
     elif currentTool == "axe":
         if grid[row][col].name == "tree":
-            grid[row][col].changeTerrain("tree used", False)
+            grid[row][col].changeTerrain("tree stump", False)
             grid[row][col].isDestroyed = True
     elif currentTool == "pickaxe":
         if grid[row][col].name == "rock":
-            grid[row][col].changeTerrain("rock used", False)
+            grid[row][col].changeTerrain("crushed rock", False)
             grid[row][col].isDestroyed = True
 
-def handleMenuEvents():
-    # handle the events for the main menu
-    pass
-
 def handleGameEvents():
-    global condition, currentTool, toolImage, toolTimer, printDebug
+    global condition, currentTool, toolImage, toolTimer
     for event in pygame.event.get():
         if event.type == QUIT:
             pygame.quit()
@@ -681,7 +749,7 @@ def handleGameEvents():
                 currentTool = TOOLS[TOOLS.index(currentTool) - 1]
                 toolImage = pygame.image.load("images/tools/" + currentTool + ".png")
                 toolTimer = 0.5
-                inventoryTimer = 0.5
+                inventoryTimer = 2.0
             elif event.key == cycleToolRightKey:
                 if TOOLS.index(currentTool) == len(TOOLS) - 1:
                     currentTool = TOOLS[0]
@@ -689,11 +757,7 @@ def handleGameEvents():
                     currentTool = TOOLS[TOOLS.index(currentTool) + 1]
                 toolImage = pygame.image.load("images/tools/" + currentTool + ".png")
                 toolTimer = 0.5
-                inventoryTimer = 0.5
-            elif event.key == K_ESCAPE:
-                condition = False
-            elif event.key == K_x:
-                printDebug = True
+                inventoryTimer = 2.0
         elif event.type == KEYUP:
             if event.key == moveLeftKey:
                 if "left" in you.direction:
@@ -731,56 +795,104 @@ def handleGameEvents():
                     you.changeOrientation("right")
                 elif "down" in you.direction:
                     you.changeOrientation("front")
-            elif event.key == useToolKey:
-                pass
-            elif event.key == cycleToolLeftKey:
-                pass
-            elif event.key == cycleToolRightKey:
-                pass
-            elif event.key == K_x:
-                printDebug = False
 
 def characterSelection():
-    global biomesPerMap, biomeLength, condition, currentTool, grid, you
+    global biomesPerMap, biomeLength, condition, currentTool, grid, you, gameTimer, isMultiplayer
+    global highScore1, highScore2, highScore3, highScore4, highScore5
     currentName = 0
-    while True:
-        while condition:
-            for event in pygame.event.get():
-                if event.type == QUIT:
-                    pygame.quit()
-                    os._exit(0)
-                elif event.type == KEYDOWN:
-                    if event.key == moveLeftKey:
-                        if currentName == 0:
-                            currentName = 3
-                        else:
-                            currentName -= 1
-                    elif event.key == moveRightKey:
-                        if currentName == 3:
-                            currentName = 0
-                        else:
-                            currentName += 1
-                    elif event.key == useToolKey:
-                        condition = False
-                    elif event.key == K_ESCAPE:
-                        pygame.quit()
-                        os._exit(0)
-            printTextToScreen(NAMES[currentName])
+    condition = True
+    while condition:
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                os._exit(0)
+            elif event.type == KEYDOWN:
+                if event.key == moveLeftKey:
+                    if currentName == 0:
+                        currentName = 3
+                    else:
+                        currentName -= 1
+                elif event.key == moveRightKey:
+                    if currentName == 3:
+                        currentName = 0
+                    else:
+                        currentName += 1
+                elif event.key == useToolKey:
+                    condition = False
+        printTextToScreen(NAMES[currentName])
 
-        condition = True
-        grid = generateRandomMap(biomesPerMap, biomeLength)
-        you = Player(biomeLength // 2, biomeLength // 2, 250, NAMES[currentName].lower())
-        currentTool = getToolFromPlayerName(NAMES[currentName])
-        you.checkForCollisions()
+    condition = True
+    printTextToScreen("Generating map. This may take a while...")
+    grid = generateRandomMap(biomesPerMap, biomeLength)
+    you = Player(biomeLength // 2, biomeLength // 2, 250, NAMES[currentName].lower())
+    currentTool = getToolFromPlayerName(NAMES[currentName])
+    you.checkForCollisions()
+    gameTimer = timeLimit
+    isMultiplayer = False
 
-        while condition:
-            executeGameFrame()
-            
-        condition = True
+    while condition:
+        executeGameFrame()
 
+    timeUp = font.render("Time up!", True, WHITE, BLACK)
+    timeUp.set_colorkey(BLACK)
+    timeUpTimer = 2.0
+    while timeUpTimer > 0.0:
+        SCREEN.blit(timeUp, (SCREEN_WIDTH // 2 - timeUp.get_width() // 2, 100))
+        pygame.display.update()
+        CLOCK.tick(FPS)
+        timeUpTimer -= timePassed
+    scoreText = font.render("Your score: $" + str(you.money), True, WHITE, BLACK)
+    nextText = font.render("", True, WHITE, BLACK)
+    quitText = font.render("Press any key to go back to the main menu.", True, WHITE, BLACK)
+    if you.money > highScore1:
+        nextText = font.render("You broke the highest score!", True, WHITE, BLACK)
+        highScore5 = highScore4
+        highScore4 = highScore3
+        highScore3 = highScore2
+        highScore2 = highScore1
+        highScore1 = you.money
+    elif you.money > highScore2:
+        nextText = font.render("You broke the second highest score!", True, WHITE, BLACK)
+        highScore5 = highScore4
+        highScore4 = highScore3
+        highScore3 = highScore2
+        highScore2 = you.money
+    elif you.money > highScore3:
+        nextText = font.render("You broke the third highest score!", True, WHITE, BLACK)
+        highScore5 = highScore4
+        highScore4 = highScore3
+        highScore3 = you.money
+    elif you.money > highScore4:
+        nextText = font.render("You broke the fourth highest score!", True, WHITE, BLACK)
+        highScore5 = highScore4
+        highScore4 = you.money
+    elif you.money > highScore5:
+        nextText = font.render("You broke the fifth highest score!", True, WHITE, BLACK)
+        highScore5 = you.money
+    saveHighScores()
+    waitTimer = 1.0
+    condition = True
+    while condition:
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                os._exit(0)
+            elif event.type == KEYDOWN:
+                if waitTimer <= 0.0:
+                    condition = False
+        SCREEN.fill(BLACK)
+        SCREEN.blit(scoreText, (SCREEN_WIDTH // 2 - scoreText.get_width() // 2, 200))
+        SCREEN.blit(nextText, (SCREEN_WIDTH // 2 - nextText.get_width() // 2, 250))
+        if waitTimer <= 0.0:
+            SCREEN.blit(quitText, (SCREEN_WIDTH // 2 - quitText.get_width() // 2, 300))
+        pygame.display.update()
+        CLOCK.tick(FPS)
+        waitTimer -= timePassed
+        if waitTimer < 0.0:
+            waitTimer = 0.0
 
 def printTextToScreen(textString):
-    SCREEN.blit(title, (0, 0))
+    SCREEN.blit(title, (BORDER_WIDTH, 0))
     fontObj = font.render(textString, True, YELLOW, BLACK)
     fontObj.set_colorkey(BLACK)
     SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
@@ -788,8 +900,16 @@ def printTextToScreen(textString):
     CLOCK.tick(FPS)
 
 def executeGameFrame():
-    global timeLimit, toolTimer, inventoryTimer
+    global gameTimer, toolTimer, inventoryTimer, condition
     handleGameEvents()
+    if isMultiplayer:
+        # server sends key inputs
+        # client reads server key inputs
+        # client sends key inputs
+        # server reads client key inputs
+
+        # other player moves
+        pass
     if "left" in you.direction and "right" in you.direction:
         you.direction.remove("left")
         you.direction.remove("right")
@@ -798,15 +918,41 @@ def executeGameFrame():
         you.direction.remove("up")
     you.move()
     # render new frame: fill screen with solid color, blit the grid, and then blit the player
-    SCREEN.fill((181, 230, 29))
+    SCREEN.fill(BLACK)
     for i in range(len(screenGrid)):
         for j in range(len(screenGrid[0])):
-            SCREEN.blit(screenGrid[i][j].image, (50 * (j - 1) - you.dispX, 50 * (i - 1) - you.dispY))
+            SCREEN.blit(screenGrid[i][j].image, (50 * (j - 1) - you.dispX + BORDER_WIDTH, 50 * (i - 1) - you.dispY))
             if screenGrid[i][j].isDestroyed and screenGrid[i][j].treasure != 0:
-                SCREEN.blit(screenGrid[i][j].treasure.image, (50 * (j - 1) - you.dispX, 50 * (i - 1) - you.dispY))
+                SCREEN.blit(screenGrid[i][j].treasure.image, (50 * (j - 1) - you.dispX + BORDER_WIDTH, 50 * (i - 1) - you.dispY))
+    if toolInUse:
+        toolAnimation = pygame.image.load("images/tools/" + currentTool + " " + you.orientation + " " + str(you.toolAnimation) + ".png").convert()
+        toolAnimation.set_colorkey(WHITE)
+        if you.orientation == "right":
+            SCREEN.blit(toolAnimation, (you.x + 30, you.y + 12))
+        elif you.orientation == "left":
+            SCREEN.blit(toolAnimation, (you.x - 15, you.y + 12))
+        elif you.orientation == "front":
+            SCREEN.blit(toolAnimation, (you.x + 8, you.y + 30))
+        else:
+            SCREEN.blit(toolAnimation, (you.x + 8, you.y - 15))
     SCREEN.blit(you.image, (you.x, you.y))
+    if isMultiplayer:
+        # blit other player to screen if they are on screen
+        pass
     if toolTimer > 0.0:
         SCREEN.blit(toolImage, (you.x + 5, you.y - 45))
+    pygame.draw.rect(SCREEN, BLACK, (0, 0, BORDER_WIDTH, SCREEN_HEIGHT))
+    pygame.draw.rect(SCREEN, BLACK, (SCREEN_WIDTH - BORDER_WIDTH, 0, BORDER_WIDTH, SCREEN_HEIGHT))
+    minutesLeft = int(gameTimer) // 60
+    secondsLeft = int(gameTimer) - 60 * (int(gameTimer) // 60)
+    if secondsLeft < 10:
+        timeLeft = str(minutesLeft) + ":0" + str(secondsLeft)
+    else:
+        timeLeft = str(minutesLeft) + ":" + str(secondsLeft)
+    timerImage = font.render(timeLeft, True, WHITE, BLACK)
+    moneyImage = font.render("$" + str(you.money), True, WHITE, BLACK)
+    SCREEN.blit(timerImage, (0, 0))
+    SCREEN.blit(moneyImage, (0, SCREEN_HEIGHT // 2))
     toolTimer -= timePassed
     if toolTimer < 0.0:
         toolTimer = 0.0
@@ -816,35 +962,40 @@ def executeGameFrame():
         inventoryTimer = 0.0
     pygame.display.update()
     CLOCK.tick(FPS)
+    gameTimer -= timePassed
+    if gameTimer <= 0.0:
+        condition = False
 
 title = pygame.image.load("images/Title Card.png")
 font = pygame.font.SysFont("helvetica", 32)
 
-gameSelection = True
-selection = 0
 while True:
+    gameSelection = True
+    selection = 0
     while gameSelection:
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
                 os._exit(0)
             elif event.type == KEYDOWN:
-                if (event.key == moveLeftKey) or (event.key == moveRightKey):
-                    if selection == 0:
-                        selection = 1
-                    elif selection == 1:
+                if event.key == moveRightKey:
+                    if selection == len(MENU_OPTIONS) - 1:
                         selection = 0
+                    else:
+                        selection += 1
+                elif event.key == moveLeftKey:
+                    if selection == 0:
+                        selection = len(MENU_OPTIONS) - 1
+                    else:
+                        selection -= 1
                 elif event.key == useToolKey:
                     gameSelection = False
-                elif event.key == K_ESCAPE:
-                    pygame.quit()
-                    os._exit(0)
         printTextToScreen(MENU_OPTIONS[selection])
 
-    if selection == 0:
+    if selection == 0: # single player
         characterSelection()
 
-    elif selection == 1:
+    elif selection == 1: # multiplayer
         selection = 0
         while True:
             while condition:
@@ -860,10 +1011,7 @@ while True:
                                 selection = 0
                         elif event.key == useToolKey:
                             condition = False
-                        elif event.key == K_ESCAPE:
-                            pygame.quit()
-                            os._exit(0)
-                SCREEN.blit(title, (0, 0))
+                SCREEN.blit(title, (100, 0))
                 fontObj = font.render("Host a game or join a game?", True, YELLOW, BLACK)
                 fontObj.set_colorkey(BLACK)
                 SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
@@ -878,11 +1026,12 @@ while True:
                 IPAddr = nf.fGetIP()
                 printTextToScreen("Your IP is: " + IPAddr)
                 serverSocket = nf.fCreateServer(PORT)
+                isHost = True
 
                 flag = True
                 while flag:
                     try:
-                        serverSocket.settimeout(5) #Time server waits for client to connect
+                        serverSocket.settimeout(5) # Time server waits for client to connect
                         serverConnection = nf.fCreateConnection(serverSocket)
                     except socket.timeout:
                         printTextToScreen("Client failed to connect.")
@@ -900,6 +1049,7 @@ while True:
 
                         time.sleep(5)
                         nf.fCloseServer(serverSocket) #this is for debugging
+                        isMultiplayer = True
                         pygame.quit()
                         os._exit(0)
                         
@@ -907,8 +1057,9 @@ while True:
                         flag = False
             elif selection == 1:
                 #Start client
+                isHost = False
                 printTextToScreen("What is the host's IP?")
-                pygame.draw.rect(SCREEN, (0,0,0), (100,450,345,35))
+                pygame.draw.rect(SCREEN, BLACK, (100, 450, 345, 35))
                 pygame.display.update()
                 CLOCK.tick(FPS)
                 ipString = []
@@ -932,7 +1083,7 @@ while True:
                     ipStr = ''.join(ipString)
                     fontObj2 = font.render(ipStr, True, YELLOW, BLACK)
                     fontObj2.set_colorkey(BLACK)
-                    pygame.draw.rect(SCREEN, (0,0,0), (100,450,350,35)) 
+                    pygame.draw.rect(SCREEN, BLACK, (100, 450, 350, 35)) 
                     SCREEN.blit(fontObj2, (SCREEN_WIDTH // 2 - fontObj2.get_width() // 2, 450))
                     pygame.display.update()
                     CLOCK.tick(FPS)
@@ -948,13 +1099,84 @@ while True:
                 time.sleep(5)
                 pygame.quit()
                 os._exit(0)
-        
-
-
-
-    
-
-
-        
-        
-        
+    elif selection == 2: # high scores
+        scoreImage1 = font.render("1: $" + str(highScore1), True, WHITE, BLACK)
+        scoreImage2 = font.render("2: $" + str(highScore2), True, WHITE, BLACK)
+        scoreImage3 = font.render("3: $" + str(highScore3), True, WHITE, BLACK)
+        scoreImage4 = font.render("4: $" + str(highScore4), True, WHITE, BLACK)
+        scoreImage5 = font.render("5: $" + str(highScore5), True, WHITE, BLACK)
+        condition = True
+        while condition:
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    os._exit(0)
+                elif event.type == KEYDOWN:
+                    condition = False
+                elif event.type == MOUSEBUTTONDOWN:
+                    condition = False
+            SCREEN.fill(BLACK)
+            SCREEN.blit(scoreImage1, (150 + BORDER_WIDTH, 150))
+            SCREEN.blit(scoreImage2, (150 + BORDER_WIDTH, 200))
+            SCREEN.blit(scoreImage3, (150 + BORDER_WIDTH, 250))
+            SCREEN.blit(scoreImage4, (150 + BORDER_WIDTH, 300))
+            SCREEN.blit(scoreImage5, (150 + BORDER_WIDTH, 350))
+            pygame.display.update()
+            CLOCK.tick(FPS)
+    elif selection == 3: # settings
+        exitText = font.render("Back to menu", True, WHITE, BLACK)
+        cursor = pygame.image.load("images/cursor.png")
+        currentSelection = 0
+        condition = True
+        while condition:
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    os._exit(0)
+                elif event.type == KEYDOWN:
+                    if event.key == moveRightKey:
+                        if currentSelection == 0:
+                            if biomesPerMap == 9:
+                                biomesPerMap = 16
+                            elif biomesPerMap == 16:
+                                biomesPerMap = 25
+                        elif currentSelection == 1:
+                            if biomeLength < 59:
+                                biomeLength += 12
+                    elif event.key == moveLeftKey:
+                        if currentSelection == 0:
+                            if biomesPerMap == 25:
+                                biomesPerMap = 16
+                            elif biomesPerMap == 16:
+                                biomesPerMap = 9
+                        elif currentSelection == 1:
+                            if biomeLength > 11:
+                                biomeLength -= 12
+                    elif event.key == moveDownKey:
+                        if currentSelection < 2:
+                            currentSelection += 1
+                    elif event.key == moveUpKey:
+                        if currentSelection > 0:
+                            currentSelection -= 1
+                    elif event.key == useToolKey:
+                        if currentSelection == 2:
+                            condition = False
+            
+            biomeNumText = font.render("Number of Biomes: " + str(biomesPerMap), True, WHITE, BLACK)
+            biomeSizeText = font.render("Biome Side Length: " + str(biomeLength), True, WHITE, BLACK)
+            SCREEN.fill(BLACK)
+            SCREEN.blit(biomeNumText, (150 + BORDER_WIDTH, 150))
+            SCREEN.blit(biomeSizeText, (150 + BORDER_WIDTH, 200))
+            SCREEN.blit(exitText, (150 + BORDER_WIDTH, 250))
+            if currentSelection == 0:
+                SCREEN.blit(cursor, (50 + BORDER_WIDTH, 150))
+            elif currentSelection == 1:
+                SCREEN.blit(cursor, (50 + BORDER_WIDTH, 200))
+            elif currentSelection == 2:
+                SCREEN.blit(cursor, (50 + BORDER_WIDTH, 250))
+            pygame.display.update()
+            CLOCK.tick(FPS)
+        saveSettings()
+    elif selection == 4: # exit
+        pygame.quit()
+        os._exit(0)
