@@ -1,6 +1,6 @@
 # ALL functions relating to the server/client MUST be created here!
 
-import socket
+import socket, pickle
 
 ##Server start
 def fGetIP():
@@ -29,7 +29,11 @@ def fReceiveFromClient(lclConnection):
 
 def fSendToClient(lclConnection, data):
     # sends key inputs to client
-    lclConnection.send(data.encode())
+    lclConnection.sendall(data.encode())
+
+def fSendMapToClient(lclConnection, grid):
+    gridData = pickle.dumps(grid)
+    lclConnection.sendall(gridData)
 
 def fCloseServer(lclServerSocket):
     lclServerSocket.close()
@@ -46,9 +50,14 @@ def fReceiveFromServer(lclClientSocket):
     data = lclClientSocket.recv(1024).decode()
     return data
 
+def fReceiveMapFromServer(lclClientSocket):
+    gridData = lclClientSocket.recv(4096)
+    grid = pickle.loads(gridData)
+    return grid
+
 def fSendToServer(lclClientSocket, data):
     # sends key inputs to server
-    lclClientSocket.send(data.encode())
+    lclClientSocket.sendall(data.encode())
 
 def fCloseClient(lclClientSocket):
     lclClientSocket.close()

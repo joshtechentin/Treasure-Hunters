@@ -20,7 +20,7 @@ SCREEN_WIDTH = 550 + BORDER_WIDTH * 2
 SCREEN_HEIGHT = 550
 SCREEN_GRID_WIDTH = 11
 SCREEN_GRID_HEIGHT = 11
-SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), FULLSCREEN, 32)
+SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
 pygame.display.set_caption("Treasure Hunters")
 
 CLOCK = pygame.time.Clock()
@@ -796,9 +796,8 @@ def handleGameEvents():
                 elif "down" in you.direction:
                     you.changeOrientation("front")
 
-def characterSelection():
-    global biomesPerMap, biomeLength, condition, currentTool, grid, you, gameTimer, isMultiplayer
-    global highScore1, highScore2, highScore3, highScore4, highScore5
+def characterSelection(hostCharacter):
+    global condition
     currentName = 0
     condition = True
     while condition:
@@ -818,18 +817,31 @@ def characterSelection():
                     else:
                         currentName += 1
                 elif event.key == useToolKey:
-                    condition = False
+                    ##TODO: give error to client when trying to choose host's chosen character
+                    if NAMES[currentName] != hostCharacter:
+                        condition = False
         printTextToScreen(NAMES[currentName])
 
+    return NAMES[currentName]
+
+def mapStartUp(characterName):
+    global biomesPerMap, biomeLength, condition, currentTool, gameTimer, grid, you
     condition = True
     printTextToScreen("Generating map. This may take a while...")
-    grid = generateRandomMap(biomesPerMap, biomeLength)
-    you = Player(biomeLength // 2, biomeLength // 2, 250, NAMES[currentName].lower())
-    currentTool = getToolFromPlayerName(NAMES[currentName])
+    if isHost:
+        grid = generateRandomMap(biomesPerMap, biomeLength)
+    you = Player(biomeLength // 2, biomeLength // 2, 250, characterName.lower())
+    currentTool = getToolFromPlayerName(characterName)
     you.checkForCollisions()
     gameTimer = timeLimit
-    isMultiplayer = False
+    ##needed?? isMultiplayer = False
 
+    #return grid #because grid is global, this return should not be needed
+
+def gameStartUp():
+    global condition
+    global highScore1, highScore2, highScore3, highScore4, highScore5
+    
     while condition:
         executeGameFrame()
 
@@ -993,7 +1005,11 @@ while True:
         printTextToScreen(MENU_OPTIONS[selection])
 
     if selection == 0: # single player
-        characterSelection()
+        isMultiplayer = False
+        isHost = True
+        chosenCharacter = characterSelection("none")
+        mapStartUp(chosenCharacter)
+        gameStartUp()
 
     elif selection == 1: # multiplayer
         selection = 0
@@ -1022,7 +1038,7 @@ while True:
                 CLOCK.tick(FPS)
 
             if selection == 0:
-                #Start server
+################Start server
                 IPAddr = nf.fGetIP()
                 printTextToScreen("Your IP is: " + IPAddr)
                 serverSocket = nf.fCreateServer(PORT)
@@ -1031,7 +1047,7 @@ while True:
                 flag = True
                 while flag:
                     try:
-                        serverSocket.settimeout(5) # Time server waits for client to connect
+                        serverSocket.settimeout(25) # Time server waits for client to connect
                         serverConnection = nf.fCreateConnection(serverSocket)
                     except socket.timeout:
                         printTextToScreen("Client failed to connect.")
@@ -1044,19 +1060,30 @@ while True:
                         raise
                     else:
                         printTextToScreen("Client connected.")
-
                         nf.fSendToClient(serverConnection, "connected")
+                        isMultiplayer = True
+                        #Choose character and tell client
+                        chosenCharacter = characterSelection("none")
+                        nf.fSendToClient(serverConnection, chosenCharacter)
+
+                        #Create map and send to client
+                        mapStartUp(chosenCharacter)
+                        nf.fSendMapToClient(serverConnection, grid)
+
+                        #Start game
+                        clientStatus = nf.fReceiveFromClient(serverConnection)
+                        if clientStatus == "ready":
+                            gameStartUp()
 
                         time.sleep(5)
                         nf.fCloseServer(serverSocket) #this is for debugging
-                        isMultiplayer = True
                         pygame.quit()
                         os._exit(0)
                         
                         #send/receive here
                         flag = False
             elif selection == 1:
-                #Start client
+################Start client
                 isHost = False
                 printTextToScreen("What is the host's IP?")
                 pygame.draw.rect(SCREEN, BLACK, (100, 450, 345, 35))
@@ -1093,8 +1120,27 @@ while True:
                 data = nf.fReceiveFromServer(clientSocket)
                 if data == "connected":
                     printTextToScreen("Successfully connected.")
-                #else:
-                    
+                    isMultiplayer = True
+                
+                #Receive host's chosen character
+                ##TODO: "Waiting... Host is choosing character" 
+                hostCharacter = nf.fReceiveFromServer(clientSocket)
+                #Client chooses character different from host's
+                chosenCharacter = characterSelection(hostCharacter)
+
+                #Receive grid
+                #grid = nf.fReceiveFromServer
+                grid = nf.fReceiveMapFromServer(clientSocket)
+
+
+                #isHost will prevent a new grid from being created
+                mapStartUp(chosenCharacter)
+
+                #Start game
+                nf.SendToServer(clientSocket, "ready")
+                gameStartUp()
+                
+                 
                 nf.fCloseClient(clientSocket)  #this is for debugging
                 time.sleep(5)
                 pygame.quit()
