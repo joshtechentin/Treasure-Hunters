@@ -58,10 +58,10 @@ toolTimer = 0.0 # the length of time the tool image is on screen for
 toolInUse = False
 gameTimer = 0.0
 
-BIOMES = ["forest", "quarry", "arctic", "plains"]
+BIOMES = ["forest", "quarry", "arctic", "plains", "farm"]
 TREASURE = ["diamond", "emerald", "ruby", "sapphire", "coin"]
 NAMES = ["Anthony", "Caitlin", "Josh", "Matt"]
-TOOLS = ["shovel", "axe", "pickaxe"]
+TOOLS = ["shovel", "axe", "pickaxe", "scythe", "hammer"]
 MENU_OPTIONS = ["Single Player", "Multiplayer", "High Scores", "Settings", "Exit"]
 OPTIONS = ["Host a game", "Join a game"]
 PORT = 80
@@ -135,13 +135,13 @@ def getToolFromPlayerName(name):
     # the names and values have NOT been finalized
 
     if name == "Josh":
-        return "shovel"
+        return "hammer"
     elif name == "Anthony":
         return "axe"
     elif name == "Caitlin":
         return "pickaxe"
     else:
-        return "shovel"
+        return "scythe"
 
 def getTerrainFromBiome(biome):
     # returns the terrain associated with the specified biome
@@ -156,6 +156,8 @@ def getTerrainFromBiome(biome):
         return "ice"
     elif biome == "plains":
         return "water"
+    elif biome == "farm":
+        return "wheat"
 
 class Treasure(object):
     def __init__(self, name):
@@ -506,6 +508,8 @@ def generateRandomBiome(biomeName, tilesPerSide, possibleExits, BPM, paths, num)
     defaultTerrain = ""
     if biomeName == "arctic":
         defaultTerrain = "snowy"
+    elif biomeName == "farm":
+        defaultTerrain = "farm ground"
     else:
         defaultTerrain = "ground"
     
@@ -578,29 +582,33 @@ def generateRandomMap(biomesPerMap, tilesPerSide):
         biomeTypes.append("quarry")
         biomeTypes.append("quarry")
         biomeTypes.append("arctic")
-        biomeTypes.append("arctic")
+        biomeTypes.append("farm")
+        biomeTypes.append("farm")
         biomeTypes.append("plains")
         biomeTypes.append("plains")
-        biomeTypes.append(random.choice(BIOMES))
     elif biomesPerMap == 16:
-        for i in range(4):
+        for i in range(3):
             biomeTypes.append("forest")
-        for i in range(4):
+        for i in range(3):
             biomeTypes.append("quarry")
-        for i in range(4):
+        for i in range(3):
             biomeTypes.append("arctic")
-        for i in range(4):
+        for i in range(3):
             biomeTypes.append("plains")
-    elif biomesPerMap == 25:
-        for i in range(6):
-            biomeTypes.append("forest")
-        for i in range(6):
-            biomeTypes.append("quarry")
-        for i in range(6):
-            biomeTypes.append("arctic")
-        for i in range(6):
-            biomeTypes.append("plains")
+        for i in range(3):
+            biomeTypes.append("farm")
         biomeTypes.append(random.choice(BIOMES))
+    elif biomesPerMap == 25:
+        for i in range(5):
+            biomeTypes.append("forest")
+        for i in range(5):
+            biomeTypes.append("quarry")
+        for i in range(5):
+            biomeTypes.append("arctic")
+        for i in range(5):
+            biomeTypes.append("plains")
+        for i in range(5):
+            biomeTypes.append("farm")
     random.shuffle(biomeTypes)
 
     # determine number of exits from biome (default to 1)
@@ -659,22 +667,34 @@ def showInventory():
         shov = pygame.image.load("tools/shovel.png")
         ax = pygame.image.load("tools/axe.png")
         pickax = pygame.image.load("tools/pickaxe.png")
+        hamm = pygame.image.load("tools/hammer.png")
+        sick = pygame.image.load("tools/scythe.png")
         shov1 = pygame.image.load("tools/shovel 1.png")
         ax1 = pygame.image.load("tools/axe 1.png")
         pickax1 = pygame.image.load("tools/pickaxe 1.png")
+        hamm1 = pygame.image.load("tools/hammer 1.png")
+        sick1 = pygame.image.load("tools/scythe 1.png")
         for tool in TOOLS:
             if tool == "shovel" and tool == currentTool:
                 SCREEN.blit(shov, (50, 500))
             elif tool == "shovel" and tool != currentTool:
                 SCREEN.blit(shov1, (50, 500))
-            if tool == "axe" and tool == currentTool:
+            elif tool == "axe" and tool == currentTool:
                 SCREEN.blit(ax, (100, 500))
-            if tool == "axe" and tool != currentTool:
+            elif tool == "axe" and tool != currentTool:
                 SCREEN.blit(ax1, (100, 500))
-            if tool == "pickaxe" and tool == currentTool:
+            elif tool == "pickaxe" and tool == currentTool:
                 SCREEN.blit(pickax, (150, 500))
-            if tool == "pickaxe" and tool != currentTool:
+            elif tool == "pickaxe" and tool != currentTool:
                 SCREEN.blit(pickax1, (150, 500))
+            elif tool == "hammer" and tool == currentTool:
+                SCREEN.blit(hamm, (150, 500))
+            elif tool == "hammer" and tool != currentTool:
+                SCREEN.blit(hamm1, (150, 500))
+            elif tool == "scythe" and tool == currentTool:
+                SCREEN.blit(sick, (150, 500))
+            elif tool == "scythe" and tool != currentTool:
+                SCREEN.blit(sick1, (150, 500))
         ##pygame.display.update()
 
         
@@ -694,6 +714,9 @@ def useTool(row, col):
         elif grid[row][col].name == "snowy":
             grid[row][col].changeTerrain("dug up snow", False)
             grid[row][col].isDestroyed = True
+        elif grid[row][col].name == "farm ground":
+            grid[row][col].changeTerrain("dug up farm", False)
+            grid[row][col].isDestroyed = True
     elif currentTool == "axe":
         if grid[row][col].name == "tree":
             grid[row][col].changeTerrain("tree stump", False)
@@ -701,6 +724,14 @@ def useTool(row, col):
     elif currentTool == "pickaxe":
         if grid[row][col].name == "rock":
             grid[row][col].changeTerrain("crushed rock", False)
+            grid[row][col].isDestroyed = True
+    elif currentTool == "scythe":
+        if grid[row][col].name == "wheat":
+            grid[row][col].changeTerrain("sliced wheat", False)
+            grid[row][col].isDestroyed = True
+    elif currentTool == "hammer":
+        if grid[row][col].name == "ice":
+            grid[row][col].changeTerrain("crushed ice", False)
             grid[row][col].isDestroyed = True
 
 def handleGameEvents():
