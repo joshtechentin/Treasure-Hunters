@@ -32,7 +32,9 @@ def fSendToClient(lclConnection, data):
     lclConnection.sendall(data.encode())
 
 def fSendMapToClient(lclConnection, grid):
+    print("Sending grid...")
     gridData = pickle.dumps(grid)
+    print(gridData)
     lclConnection.sendall(gridData)
 
 def fCloseServer(lclServerSocket):
@@ -51,9 +53,19 @@ def fReceiveFromServer(lclClientSocket):
     return data
 
 def fReceiveMapFromServer(lclClientSocket):
-    gridData = lclClientSocket.recv(4096)
-    grid = pickle.loads(gridData)
-    return grid
+    print("Receiving grid...")
+    newGrid = []
+
+    while True:
+         gridData = lclClientSocket.recv(4096)
+         if gridData:
+             print(gridData)
+             grid = pickle.loads(gridData)
+             newGrid.extend(grid)
+         #if not gridData:
+          #   break
+    print(newGrid)
+    return newGrid
 
 def fSendToServer(lclClientSocket, data):
     # sends key inputs to server

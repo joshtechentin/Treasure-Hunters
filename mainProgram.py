@@ -865,9 +865,6 @@ def mapStartUp(characterName):
     currentTool = getToolFromPlayerName(characterName)
     you.checkForCollisions()
     gameTimer = timeLimit
-    ##needed?? isMultiplayer = False
-
-    #return grid #because grid is global, this return should not be needed
 
 def gameStartUp():
     global condition
@@ -1078,7 +1075,7 @@ while True:
                 flag = True
                 while flag:
                     try:
-                        serverSocket.settimeout(25) # Time server waits for client to connect
+                        serverSocket.settimeout(35) # Time server waits for client to connect
                         serverConnection = nf.fCreateConnection(serverSocket)
                     except socket.timeout:
                         printTextToScreen("Client failed to connect.")
@@ -1091,19 +1088,25 @@ while True:
                         raise
                     else:
                         printTextToScreen("Client connected.")
+                        serverConnection.setblocking(1)
                         nf.fSendToClient(serverConnection, "connected")
                         isMultiplayer = True
                         #Choose character and tell client
                         chosenCharacter = characterSelection("none")
                         nf.fSendToClient(serverConnection, chosenCharacter)
+                        print(chosenCharacter) 
 
                         #Create map and send to client
                         mapStartUp(chosenCharacter)
+                        print("Preparing to send grid to client") 
                         nf.fSendMapToClient(serverConnection, grid)
 
                         #Start game
+                        print("Is client ready?")
                         clientStatus = nf.fReceiveFromClient(serverConnection)
+                        print("Received client status...")
                         if clientStatus == "ready":
+                            print("Client is ready. Now starting game")
                             gameStartUp()
 
                         time.sleep(5)
@@ -1152,23 +1155,31 @@ while True:
                 if data == "connected":
                     printTextToScreen("Successfully connected.")
                     isMultiplayer = True
+                print("Connection successful.")
                 
                 #Receive host's chosen character
                 ##TODO: "Waiting... Host is choosing character" 
                 hostCharacter = nf.fReceiveFromServer(clientSocket)
+                print(hostCharacter)
                 #Client chooses character different from host's
                 chosenCharacter = characterSelection(hostCharacter)
+                print(chosenCharacter)
 
                 #Receive grid
-                #grid = nf.fReceiveFromServer
+                print("Preparing to receive map from server")
                 grid = nf.fReceiveMapFromServer(clientSocket)
+
+                print("Grid received.")
 
 
                 #isHost will prevent a new grid from being created
                 mapStartUp(chosenCharacter)
-
+                
+                print("Sending server READY status")
                 #Start game
                 nf.SendToServer(clientSocket, "ready")
+
+                print("Starting game...")
                 gameStartUp()
                 
                  
