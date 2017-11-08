@@ -58,10 +58,10 @@ toolTimer = 0.0 # the length of time the tool image is on screen for
 toolInUse = False
 gameTimer = 0.0
 
-BIOMES = ["forest", "quarry", "arctic", "plains", "farm"]
+BIOMES = ["forest", "quarry", "farm", "arctic", "plains"]
 TREASURE = ["diamond", "emerald", "ruby", "sapphire", "coin"]
 NAMES = ["Anthony", "Caitlin", "Josh", "Matt"]
-TOOLS = ["shovel", "axe", "pickaxe", "scythe", "hammer"]
+TOOLS = ["shovel", "axe", "pickaxe", "hammer", "scythe"]
 MENU_OPTIONS = ["Single Player", "Multiplayer", "High Scores", "Settings", "Exit"]
 OPTIONS = ["Host a game", "Join a game"]
 PORT = 80
@@ -135,13 +135,13 @@ def getToolFromPlayerName(name):
     # the names and values have NOT been finalized
 
     if name == "Josh":
-        return "hammer"
+        return "pickaxe"
     elif name == "Anthony":
         return "axe"
     elif name == "Caitlin":
-        return "pickaxe"
-    else:
         return "scythe"
+    else:
+        return "hammer"
 
 def getTerrainFromBiome(biome):
     # returns the terrain associated with the specified biome
@@ -166,6 +166,9 @@ class Treasure(object):
         self.image = pygame.image.load("images/treasure/" + name + ".png").convert()
         self.image.set_colorkey(WHITE) # makes white treasure background transparent
 
+    def __str__(self):
+        return self.name
+
 class Terrain(object):
     def __init__(self, row, col, name, isSolid, treasure):
         self.row = row
@@ -175,6 +178,9 @@ class Terrain(object):
         self.image = pygame.image.load("images/terrain/" + name + ".png")
         self.treasure = treasure # the gem included inside the terrain, if any
         self.isDestroyed = False # determines if terrain has been destroyed by a tool
+
+    def __str__(self):
+        return self.name
     
     def changeTerrain(self, name, isSolid):
         # changes terrain to a new terrain
@@ -208,6 +214,8 @@ class Player(object):
         self.currentTool = getToolFromPlayerName(name) # the tool equipped by the player; initialized to their starting tool
         self.tools = [self.currentTool]
         self.toolAnimation = 0 # determines the animation frame of the tool being used
+        self.hasBridge = False
+        self.usingBridge = False
 
     def changeOrientation(self, orientation):
         self.orientation = orientation
@@ -275,7 +283,10 @@ class Player(object):
                     if rightX > j.col * 50 and leftX < j.col * 50 + 50: # check if x's overlap
                         if downY > j.row * 50 and upY < j.row * 50 + 50: # check if y's overlap
                             # collided with treasure; collect it
-                            self.money += j.treasure.value
+                            if j.treasure.name == "bridge":
+                                self.hasBridge = True
+                            else:
+                                self.money += j.treasure.value
                             j.treasure = 0
         if self.dispX >= 25:
             self.col += 1
@@ -502,14 +513,14 @@ def carveMaze(biome, defaultTerrain):
     return biome
 
 def generateRandomBiome(biomeName, tilesPerSide, possibleExits, BPM, paths, num):
+    global anthonyStartLocation, caitlinStartLocation, joshStartLocation, mattStartLocation
+
     # generates all treasures for the biome
     treasures = createBiomeTreasure(tilesPerSide * tilesPerSide)
 
     defaultTerrain = ""
     if biomeName == "arctic":
         defaultTerrain = "snowy"
-    elif biomeName == "farm":
-        defaultTerrain = "farm ground"
     else:
         defaultTerrain = "ground"
     
@@ -565,7 +576,7 @@ def generateRandomBiome(biomeName, tilesPerSide, possibleExits, BPM, paths, num)
     
     # carve the paths using the recursive backtracking algorithm
     carveMaze(randomBiome, defaultTerrain)
-    
+
     return randomBiome
 
 def generateRandomMap(biomesPerMap, tilesPerSide):
@@ -582,9 +593,9 @@ def generateRandomMap(biomesPerMap, tilesPerSide):
         biomeTypes.append("quarry")
         biomeTypes.append("quarry")
         biomeTypes.append("arctic")
+        biomeTypes.append("arctic")
         biomeTypes.append("farm")
         biomeTypes.append("farm")
-        biomeTypes.append("plains")
         biomeTypes.append("plains")
     elif biomesPerMap == 16:
         for i in range(3):
@@ -597,7 +608,6 @@ def generateRandomMap(biomesPerMap, tilesPerSide):
             biomeTypes.append("plains")
         for i in range(3):
             biomeTypes.append("farm")
-        biomeTypes.append(random.choice(BIOMES))
     elif biomesPerMap == 25:
         for i in range(5):
             biomeTypes.append("forest")
@@ -635,9 +645,34 @@ def generateRandomMap(biomesPerMap, tilesPerSide):
                 randomMap.append(generatedBiomes[i][j])
             else:
                 randomMap[i // int(math.sqrt(biomesPerMap)) * tilesPerSide + j] += generatedBiomes[i][j]
+
+    # add a bridge as a treasure
+    tile = random.choice(random.choice(randomMap))
+    while tile.name == "water" or tile.treasure != 0:
+        tile = random.choice(random.choice(randomMap))
+    tile.changeTreasure(Treasure("bridge"))
     
     return randomMap
 
+def setStartLocations():
+    global anthonyStartLocation, caitlinStartLocation, joshStartLocation, mattStartLocation
+
+    anthonyStartLocation = 0
+    caitlinStartLocation = 0
+    joshStartLocation = 0
+    mattStartLocation = 0
+    
+    for i in range(int(math.sqrt(biomesPerMap))):
+        for j in range(int(math.sqrt(biomesPerMap))):
+            if grid[i * biomeLength][j * biomeLength].name == "tree" and anthonyStartLocation == 0:
+                anthonyStartLocation = (i * biomeLength + biomeLength // 2, j * biomeLength + biomeLength // 2)
+            elif grid[i * biomeLength][j * biomeLength].name == "plant" and caitlinStartLocation == 0:
+                caitlinStartLocation = (i * biomeLength + biomeLength // 2, j * biomeLength + biomeLength // 2)
+            elif grid[i * biomeLength][j * biomeLength].name == "rock" and joshStartLocation == 0:
+                joshStartLocation = (i * biomeLength + biomeLength // 2, j * biomeLength + biomeLength // 2)
+            elif grid[i * biomeLength][j * biomeLength].name == "ice" and mattStartLocation == 0:
+                mattStartLocation = (i * biomeLength + biomeLength // 2, j * biomeLength + biomeLength // 2)
+                
 # the main grid containing every piece of terrain and its location
 grid = [[Terrain(0, 0, "ground", False, 0)] * biomeLength * int(math.sqrt(biomesPerMap))] * biomeLength * int(math.sqrt(biomesPerMap))
 screenGrid = [[0] * 13 for i in range(13)]
@@ -827,49 +862,76 @@ def handleGameEvents():
                 elif "down" in you.direction:
                     you.changeOrientation("front")
 
-def characterSelection(hostCharacter):
-    global condition
+def characterSelection():
+    global biomesPerMap, biomeLength, condition, currentTool, grid, you, gameTimer, isMultiplayer
+    global anthonyStartLocation, caitlinStartLocation, joshStartLocation, mattStartLocation
+    global highScore1, highScore2, highScore3, highScore4, highScore5
     currentName = 0
     condition = True
+    characterText = font.render("Select a character", True, YELLOW, BLACK)
+    anthonyText = font.render("Anthony", True, YELLOW, BLACK)
+    caitlinText = font.render("Caitlin", True, YELLOW, BLACK)
+    joshText = font.render("Josh", True, YELLOW, BLACK)
+    mattText = font.render("Matt", True, YELLOW, BLACK)
+    yellowCursor = pygame.image.load("images/yellow cursor.png").convert()
+    characterText.set_colorkey(BLACK)
+    anthonyText.set_colorkey(BLACK)
+    caitlinText.set_colorkey(BLACK)
+    joshText.set_colorkey(BLACK)
+    mattText.set_colorkey(BLACK)
+    yellowCursor.set_colorkey(BLACK)
     while condition:
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
                 os._exit(0)
             elif event.type == KEYDOWN:
-                if event.key == moveLeftKey:
+                if event.key == moveUpKey:
                     if currentName == 0:
                         currentName = 3
                     else:
                         currentName -= 1
-                elif event.key == moveRightKey:
+                elif event.key == moveDownKey:
                     if currentName == 3:
                         currentName = 0
                     else:
                         currentName += 1
                 elif event.key == useToolKey:
-                    ##TODO: give error to client when trying to choose host's chosen character
-                    if NAMES[currentName] != hostCharacter:
-                        condition = False
-        printTextToScreen(NAMES[currentName])
+                    condition = False
+        SCREEN.fill(BLACK)
+        SCREEN.blit(title, (BORDER_WIDTH, 0))
+        SCREEN.blit(characterText, (SCREEN_WIDTH // 2 - characterText.get_width() // 2, 250))
+        SCREEN.blit(anthonyText, (SCREEN_WIDTH // 2 - anthonyText.get_width() // 2, 300))
+        SCREEN.blit(caitlinText, (SCREEN_WIDTH // 2 - caitlinText.get_width() // 2, 350))
+        SCREEN.blit(joshText, (SCREEN_WIDTH // 2 - joshText.get_width() // 2, 400))
+        SCREEN.blit(mattText, (SCREEN_WIDTH // 2 - mattText.get_width() // 2, 450))
+        SCREEN.blit(yellowCursor, (BORDER_WIDTH + 100, 300 + 50 * currentName))
+        pygame.display.update()
+        CLOCK.tick(FPS)
 
-    return NAMES[currentName]
-
-def mapStartUp(characterName):
-    global biomesPerMap, biomeLength, condition, currentTool, gameTimer, grid, you
     condition = True
-    printTextToScreen("Generating map. This may take a while...")
-    if isHost:
-        grid = generateRandomMap(biomesPerMap, biomeLength)
-    you = Player(biomeLength // 2, biomeLength // 2, 250, characterName.lower())
-    currentTool = getToolFromPlayerName(characterName)
+    generateText = font.render("Generating map; this may take a while...", True, YELLOW, BLACK)
+    generateText.set_colorkey(BLACK)
+    SCREEN.fill(BLACK)
+    SCREEN.blit(title, (BORDER_WIDTH, 0))
+    SCREEN.blit(generateText, (SCREEN_WIDTH // 2 - generateText.get_width() // 2, 350))
+    pygame.display.update()
+    CLOCK.tick(FPS)
+    grid = generateRandomMap(biomesPerMap, biomeLength)
+    setStartLocations()
+    if currentName == 0:
+        you = Player(anthonyStartLocation[0], anthonyStartLocation[1], 250, NAMES[currentName].lower())
+    elif currentName == 1:
+        you = Player(caitlinStartLocation[0], caitlinStartLocation[1], 250, NAMES[currentName].lower())
+    elif currentName == 2:
+        you = Player(joshStartLocation[0], joshStartLocation[1], 250, NAMES[currentName].lower())
+    else:
+        you = Player(mattStartLocation[0], mattStartLocation[1], 250, NAMES[currentName].lower())
+    currentTool = getToolFromPlayerName(NAMES[currentName])
     you.checkForCollisions()
     gameTimer = timeLimit
+    isMultiplayer = False
 
-def gameStartUp():
-    global condition
-    global highScore1, highScore2, highScore3, highScore4, highScore5
-    
     while condition:
         executeGameFrame()
 
@@ -930,14 +992,6 @@ def gameStartUp():
         waitTimer -= timePassed
         if waitTimer < 0.0:
             waitTimer = 0.0
-
-def printTextToScreen(textString):
-    SCREEN.blit(title, (BORDER_WIDTH, 0))
-    fontObj = font.render(textString, True, YELLOW, BLACK)
-    fontObj.set_colorkey(BLACK)
-    SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-    pygame.display.update()
-    CLOCK.tick(FPS)
 
 def executeGameFrame():
     global gameTimer, toolTimer, inventoryTimer, condition
@@ -1012,181 +1066,166 @@ font = pygame.font.SysFont("helvetica", 32)
 while True:
     gameSelection = True
     selection = 0
+    singlePlayerText = font.render("Single Player", True, YELLOW, BLACK)
+    multiplayerText = font.render("Multiplayer", True, YELLOW, BLACK)
+    highScoresText = font.render("High Scores", True, YELLOW, BLACK)
+    settingsText = font.render("Settings", True, YELLOW, BLACK)
+    exitText = font.render("Exit", True, YELLOW, BLACK)
+    yellowCursor = pygame.image.load("images/yellow cursor.png").convert()
+    singlePlayerText.set_colorkey(BLACK)
+    multiplayerText.set_colorkey(BLACK)
+    highScoresText.set_colorkey(BLACK)
+    settingsText.set_colorkey(BLACK)
+    exitText.set_colorkey(BLACK)
+    yellowCursor.set_colorkey(BLACK)
     while gameSelection:
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
                 os._exit(0)
             elif event.type == KEYDOWN:
-                if event.key == moveRightKey:
+                if event.key == moveDownKey:
                     if selection == len(MENU_OPTIONS) - 1:
                         selection = 0
                     else:
                         selection += 1
-                elif event.key == moveLeftKey:
+                elif event.key == moveUpKey:
                     if selection == 0:
                         selection = len(MENU_OPTIONS) - 1
                     else:
                         selection -= 1
                 elif event.key == useToolKey:
                     gameSelection = False
-        printTextToScreen(MENU_OPTIONS[selection])
+        SCREEN.fill(BLACK)
+        SCREEN.blit(title, (BORDER_WIDTH, 0))
+        SCREEN.blit(singlePlayerText, (SCREEN_WIDTH // 2 - singlePlayerText.get_width() // 2, 250))
+        SCREEN.blit(multiplayerText, (SCREEN_WIDTH // 2 - multiplayerText.get_width() // 2, 300))
+        SCREEN.blit(highScoresText, (SCREEN_WIDTH // 2 - highScoresText.get_width() // 2, 350))
+        SCREEN.blit(settingsText, (SCREEN_WIDTH // 2 - settingsText.get_width() // 2, 400))
+        SCREEN.blit(exitText, (SCREEN_WIDTH // 2 - exitText.get_width() // 2, 450))
+        SCREEN.blit(yellowCursor, (BORDER_WIDTH + 100, 250 + 50 * selection))
+        pygame.display.update()
+        CLOCK.tick(FPS)
 
     if selection == 0: # single player
-        isMultiplayer = False
-        isHost = True
-        chosenCharacter = characterSelection("none")
-        mapStartUp(chosenCharacter)
-        gameStartUp()
+        characterSelection()
 
     elif selection == 1: # multiplayer
         selection = 0
-        while True:
-            while condition:
-                for event in pygame.event.get():
-                    if event.type == QUIT:
+        condition = True
+        mainText = font.render("Host a game or join a game?", True, YELLOW, BLACK)
+        hostText = font.render(OPTIONS[0], True, YELLOW, BLACK)
+        joinText = font.render(OPTIONS[1], True, YELLOW, BLACK)
+        backText = font.render("Back", True, YELLOW, BLACK)
+        mainText.set_colorkey(BLACK)
+        hostText.set_colorkey(BLACK)
+        joinText.set_colorkey(BLACK)
+        backText.set_colorkey(BLACK)
+        while condition:
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    os._exit(0)
+                elif event.type == KEYDOWN:
+                    if event.key == moveDownKey:
+                        if selection == 2:
+                            selection = 0
+                        else:
+                            selection += 1
+                    elif event.key == moveUpKey:
+                        if selection == 0:
+                            selection = 2
+                        else:
+                            selection -= 1
+                    elif event.key == useToolKey:
+                        condition = False
+            SCREEN.blit(title, (BORDER_WIDTH, 0))
+            SCREEN.blit(mainText, (SCREEN_WIDTH // 2 - mainText.get_width() // 2, 300))
+            SCREEN.blit(hostText, (SCREEN_WIDTH // 2 - hostText.get_width() // 2, 350))
+            SCREEN.blit(joinText, (SCREEN_WIDTH // 2 - joinText.get_width() // 2, 400))
+            SCREEN.blit(backText, (SCREEN_WIDTH // 2 - backText.get_width() // 2, 450))
+            SCREEN.blit(yellowCursor, (BORDER_WIDTH + 100, 350 + 50 * selection))
+            pygame.display.update()
+            CLOCK.tick(FPS)
+            
+        if selection == 0:
+            #Start server
+            IPAddr = nf.fGetIP()
+            printTextToScreen("Your IP is: " + IPAddr)
+            serverSocket = nf.fCreateServer(PORT)
+            isHost = True
+
+            flag = True
+            while flag:
+                try:
+                    serverSocket.settimeout(5) # Time server waits for client to connect
+                    serverConnection = nf.fCreateConnection(serverSocket)
+                except socket.timeout:
+                    printTextToScreen("Client failed to connect.")
+                    time.sleep(5)
+                    nf.fCloseServer(serverSocket)
+                    pygame.quit()
+                    os._exit(0)
+                    break
+                except:
+                    raise
+                else:
+                    printTextToScreen("Client connected.")
+
+                    nf.fSendToClient(serverConnection, "connected")
+
+                    time.sleep(5)
+                    nf.fCloseServer(serverSocket) #this is for debugging
+                    isMultiplayer = True
+                    pygame.quit()
+                    os._exit(0)
+                    
+                    #send/receive here
+                    flag = False
+        elif selection == 1:
+            #Start client
+            isHost = False
+            printTextToScreen("What is the host's IP?")
+            pygame.draw.rect(SCREEN, BLACK, (100, 450, 345, 35))
+            pygame.display.update()
+            CLOCK.tick(FPS)
+            ipString = []
+            while True:
+                while True:
+                    event = pygame.event.poll()
+                    if event.type == KEYDOWN:
+                        inkey = event.key
+                        break
+                    elif event.type == QUIT:
                         pygame.quit()
                         os._exit(0)
-                    elif event.type == KEYDOWN:
-                        if (event.key == moveLeftKey) or (event.key == moveRightKey):
-                            if selection == 0:
-                                selection = 1
-                            elif selection == 1:
-                                selection = 0
-                        elif event.key == useToolKey:
-                            condition = False
-                SCREEN.blit(title, (100, 0))
-                fontObj = font.render("Host a game or join a game?", True, YELLOW, BLACK)
-                fontObj.set_colorkey(BLACK)
-                SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                fontObj2 = font.render(OPTIONS[selection], True, YELLOW, BLACK)
+                    else:
+                        pass
+                if inkey == K_BACKSPACE:
+                    ipString = ipString[0:-1]
+                elif inkey == K_RETURN:
+                    break
+                elif inkey <= 127:
+                    ipString.append(chr(inkey))
+                ipStr = ''.join(ipString)
+                fontObj2 = font.render(ipStr, True, YELLOW, BLACK)
                 fontObj2.set_colorkey(BLACK)
+                pygame.draw.rect(SCREEN, BLACK, (100, 450, 350, 35)) 
                 SCREEN.blit(fontObj2, (SCREEN_WIDTH // 2 - fontObj2.get_width() // 2, 450))
                 pygame.display.update()
                 CLOCK.tick(FPS)
 
-            if selection == 0:
-################Start server
-                IPAddr = nf.fGetIP()
-                printTextToScreen("Your IP is: " + IPAddr)
-                serverSocket = nf.fCreateServer(PORT)
-                isHost = True
-
-                flag = True
-                while flag:
-                    try:
-                        serverSocket.settimeout(35) # Time server waits for client to connect
-                        serverConnection = nf.fCreateConnection(serverSocket)
-                    except socket.timeout:
-                        printTextToScreen("Client failed to connect.")
-                        time.sleep(5)
-                        nf.fCloseServer(serverSocket)
-                        pygame.quit()
-                        os._exit(0)
-                        break
-                    except:
-                        raise
-                    else:
-                        printTextToScreen("Client connected.")
-                        serverConnection.setblocking(1)
-                        nf.fSendToClient(serverConnection, "connected")
-                        isMultiplayer = True
-                        #Choose character and tell client
-                        chosenCharacter = characterSelection("none")
-                        nf.fSendToClient(serverConnection, chosenCharacter)
-                        print(chosenCharacter) 
-
-                        #Create map and send to client
-                        mapStartUp(chosenCharacter)
-                        print("Preparing to send grid to client") 
-                        nf.fSendMapToClient(serverConnection, grid)
-
-                        #Start game
-                        print("Is client ready?")
-                        clientStatus = nf.fReceiveFromClient(serverConnection)
-                        print("Received client status...")
-                        if clientStatus == "ready":
-                            print("Client is ready. Now starting game")
-                            gameStartUp()
-
-                        time.sleep(5)
-                        nf.fCloseServer(serverSocket) #this is for debugging
-                        pygame.quit()
-                        os._exit(0)
-                        
-                        #send/receive here
-                        flag = False
-            elif selection == 1:
-################Start client
-                isHost = False
-                printTextToScreen("What is the host's IP?")
-                pygame.draw.rect(SCREEN, BLACK, (100, 450, 345, 35))
-                pygame.display.update()
-                CLOCK.tick(FPS)
-                ipString = []
-                while True:
-                    while True:
-                        event = pygame.event.poll()
-                        if event.type == KEYDOWN:
-                            inkey = event.key
-                            break
-                        elif event.type == QUIT:
-                            pygame.quit()
-                            os._exit(0)
-                        else:
-                            pass
-                    if inkey == K_BACKSPACE:
-                        ipString = ipString[0:-1]
-                    elif inkey == K_RETURN:
-                        break
-                    elif inkey <= 127:
-                        ipString.append(chr(inkey))
-                    ipStr = ''.join(ipString)
-                    fontObj2 = font.render(ipStr, True, YELLOW, BLACK)
-                    fontObj2.set_colorkey(BLACK)
-                    pygame.draw.rect(SCREEN, BLACK, (100, 450, 350, 35)) 
-                    SCREEN.blit(fontObj2, (SCREEN_WIDTH // 2 - fontObj2.get_width() // 2, 450))
-                    pygame.display.update()
-                    CLOCK.tick(FPS)
-
-                clientSocket = nf.fCreateClient(ipStr, PORT)
-                printTextToScreen("Connecting...")
-                data = nf.fReceiveFromServer(clientSocket)
-                if data == "connected":
-                    printTextToScreen("Successfully connected.")
-                    isMultiplayer = True
-                print("Connection successful.")
+            clientSocket = nf.fCreateClient(ipStr, PORT)
+            printTextToScreen("Connecting...")
+            data = nf.fReceiveFromServer(clientSocket)
+            if data == "connected":
+                printTextToScreen("Successfully connected.")
+            #else:
                 
-                #Receive host's chosen character
-                ##TODO: "Waiting... Host is choosing character" 
-                hostCharacter = nf.fReceiveFromServer(clientSocket)
-                print(hostCharacter)
-                #Client chooses character different from host's
-                chosenCharacter = characterSelection(hostCharacter)
-                print(chosenCharacter)
-
-                #Receive grid
-                print("Preparing to receive map from server")
-                grid = nf.fReceiveMapFromServer(clientSocket)
-
-                print("Grid received.")
-
-
-                #isHost will prevent a new grid from being created
-                mapStartUp(chosenCharacter)
-                
-                print("Sending server READY status")
-                #Start game
-                nf.SendToServer(clientSocket, "ready")
-
-                print("Starting game...")
-                gameStartUp()
-                
-                 
-                nf.fCloseClient(clientSocket)  #this is for debugging
-                time.sleep(5)
-                pygame.quit()
-                os._exit(0)
+            nf.fCloseClient(clientSocket)  #this is for debugging
+            time.sleep(5)
+            pygame.quit()
+            os._exit(0)
     elif selection == 2: # high scores
         scoreImage1 = font.render("1: $" + str(highScore1), True, WHITE, BLACK)
         scoreImage2 = font.render("2: $" + str(highScore2), True, WHITE, BLACK)
