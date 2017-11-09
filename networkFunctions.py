@@ -1,6 +1,6 @@
 # ALL functions relating to the server/client MUST be created here!
 
-import socket
+import socket, pickle, pygame
 
 ##Server start
 def fGetIP():
@@ -24,12 +24,38 @@ def fCreateConnection(lclServerSocket):
 
 def fReceiveFromClient(lclConnection):
     # receives key inputs from client
-    data = lclConnection.recv(1024).decode()
+    data = lclConnection.recv(1024).decode('utf-8')
     return data
 
 def fSendToClient(lclConnection, data):
     # sends key inputs to client
-    lclConnection.send(data.encode())
+    lclConnection.sendall(data.encode())
+
+def fSendMapToClient(lclConnection, grid):
+    rows = len(grid)
+    cols = len(grid[0])
+    print(rows)
+    print(cols)
+    
+    row = str(rows)
+    col = str(cols)
+
+    #fSendToClient(lclConnection, row)
+    #fSendToClient(lclConnection, col)
+    
+    print("Sending grid...")
+
+    for r in range(rows):
+        for c in range(cols):
+            print(grid[r][c])
+            grid[r][c].image = 0
+            data = pickle.dumps(grid[r][c])
+            lclConnection.sendall(data)
+            grid[r][c].image = pygame.image.load("images/terrain/"+grid[r][c].name+".png")
+            status = fReceiveFromClient(lclConnection)
+            if status != "READYFORNEXT":
+                print("There was an error..")
+                break #Not ideal, but good enough for now
 
 def fCloseServer(lclServerSocket):
     lclServerSocket.close()
@@ -43,12 +69,44 @@ def fCreateClient(IP, port):
 
 def fReceiveFromServer(lclClientSocket):
     # receives key inputs from server
-    data = lclClientSocket.recv(1024).decode()
+    data = lclClientSocket.recv(1024).decode('utf-8')
     return data
+
+def fReceiveIntFromServer(lclClientSocket):
+    # receives key inputs from server
+    data = lclClientSocket.recv(4).decode('utf-8')
+    return data
+
+def fReceiveMapFromServer(lclClientSocket):
+    #rows = fReceiveIntFromServer(lclClientSocket)
+    #cols = fReceiveIntFromServer(lclClientSocket)
+
+    rows = 33 #int(rows)
+    cols = 33 #int(cols)
+    print(rows)
+    print(cols)
+
+    grid = []
+
+    print("Receiving grid...")
+
+    for r in range(rows):
+        for c in range(cols):
+            if c == 0:
+                grid.append([])
+            data = lclClientSocket.recv(4096)
+            gridData = pickle.loads(data)
+            grid[r].append(gridData)
+            grid[r][c].image = pygame.image.load("images/terrain/"+grid[r][c].name+".png")
+            print(grid[r][c])
+            fSendToServer(lclClientSocket, "READYFORNEXT")
+
+
+    return grid
 
 def fSendToServer(lclClientSocket, data):
     # sends key inputs to server
-    lclClientSocket.send(data.encode())
+    lclClientSocket.sendall(data.encode())
 
 def fCloseClient(lclClientSocket):
     lclClientSocket.close()
