@@ -56,6 +56,8 @@ timeLimit = 180.0 # time limit in seconds
 toolTimer = 0.0 # the length of time the tool image is on screen for
 toolInUse = False
 gameTimer = 0.0
+keysPressed = ""
+keysReleased = ""
 
 shovImage = pygame.image.load("images/tools/shovel.png")
 shovImage1 = pygame.image.load("images/tools/shovel 1.png")
@@ -68,6 +70,11 @@ hammerImage1 = pygame.image.load("images/tools/hammer 1.png")
 scytheImage = pygame.image.load("images/tools/scythe.png")
 scytheImage1 = pygame.image.load("images/tools/scythe 1.png")
 invalidToolImage = pygame.image.load("images/invalid.png")
+bridgeImage = pygame.image.load("images/treasure/bridge.png").convert()
+bridgeImage.set_colorkey(WHITE)
+
+leftBorder = pygame.image.load("images/hud/scorekeeping.png")
+rightBorder = pygame.image.load("images/hud/instructions.png")
 
 BIOMES = ["forest", "quarry", "farm", "arctic", "plains"]
 TREASURE = ["diamond", "emerald", "ruby", "sapphire", "coin"]
@@ -215,6 +222,7 @@ class Player(object):
         self.diagonalMovement = int(self.movement * math.cos(45)) # the amount of pixels they move each frame diagonally
         self.direction = [] # keeps track of which direction(s) the player is moving in
         self.collisionGrid = [[0] * 3 for i in range(3)]
+        self.screenGrid = [[0] * 13 for i in range(13)]
         self.updateCollisionGrid()
         self.name = name # the player"s name, used to determine many things
         self.orientation = "front"
@@ -303,9 +311,26 @@ class Player(object):
                             # collided with treasure; collect it
                             if j.treasure.name == "bridge":
                                 self.hasBridge = True
+                                j.treasure = 0
+                            elif j.treasure.name == "axe":
+                                if self.tools[0] == "no axe":
+                                    self.tools[0] = "axe"
+                                    j.treasure = 0
+                            elif j.treasure.name == "pickaxe":
+                                if self.tools[1] == "no pickaxe":
+                                    self.tools[1] = "pickaxe"
+                                    j.treasure = 0
+                            elif j.treasure.name == "hammer":
+                                if self.tools[2] == "no hammer":
+                                    self.tools[2] = "hammer"
+                                    j.treasure = 0
+                            elif j.treasure.name == "scythe":
+                                if self.tools[3] == "no scythe":
+                                    self.tools[3] = "scythe"
+                                    j.treasure = 0
                             else:
                                 self.money += j.treasure.value
-                            j.treasure = 0
+                                j.treasure = 0
         if self.dispX >= 25:
             self.col += 1
             if self.col >= len(grid[0]):
@@ -327,7 +352,7 @@ class Player(object):
                 self.row = len(grid) - 1
             self.dispY += 50
         self.updateCollisionGrid()
-        updateScreenGrid()
+        self.updateScreenGrid()
                         
     def updateCollisionGrid(self):
         # call when the user has finished moving for the current frame.
@@ -358,6 +383,21 @@ class Player(object):
                 self.collisionGrid[2][2] = grid[self.row + 1][0]
             else:
                 self.collisionGrid[2][2] = grid[self.row + 1][self.col + 1]
+
+    def updateScreenGrid(self):
+        for i in range(13):
+            for j in range(13):
+                gridX = you.row - 6 + i
+                if gridX >= biomeLength * int(math.sqrt(biomesPerMap)):
+                    gridX -= biomeLength * int(math.sqrt(biomesPerMap))
+                elif gridX <= -biomeLength * int(math.sqrt(biomesPerMap)):
+                    gridX += biomeLength * int(math.sqrt(biomesPerMap))
+                gridY = you.col - 6 + j
+                if gridY >= biomeLength * int(math.sqrt(biomesPerMap)):
+                    gridY -= biomeLength * int(math.sqrt(biomesPerMap))
+                elif gridY <= -biomeLength * int(math.sqrt(biomesPerMap)):
+                    gridY += biomeLength * int(math.sqrt(biomesPerMap))
+                self.screenGrid[i][j] = grid[gridX][gridY]
                 
     def move(self):
         # moves player in the direction specified and animates them
@@ -599,7 +639,7 @@ def generateRandomBiome(biomeName, tilesPerSide, possibleExits, BPM, paths, num)
 
     return randomBiome
 
-def generateRandomMap(biomesPerMap, tilesPerSide):
+def generateRandomMap(biomesPerMap, tilesPerSide, isMultiplayer):
     # creates a pseudo-random map and all the treasures on it
 
     # initialize the map and a list of biomes
@@ -672,6 +712,57 @@ def generateRandomMap(biomesPerMap, tilesPerSide):
         tile = random.choice(random.choice(randomMap))
     tile.changeTreasure(Treasure("bridge"))
     
+    # add tools to world map for people to find
+    toolsToAdd = ["axe", "pickaxe", "hammer", "scythe"]
+    forestTools = 0
+    quarryTools = 0
+    arcticTools = 0
+    farmTools = 0
+    toolLimit = 1
+    if isMultiplayer:
+        toolsToAdd *= 2
+        toolLimit += 1
+    while len(toolsToAdd) > 0:
+        tile = random.choice(random.choice(randomMap))
+        while tile.name == "water" or tile.treasure != 0:
+            tile = random.choice(random.choice(randomMap))
+        if tile.name == "tree":
+            if forestTools < toolLimit and toolsToAdd.count("axe") != len(toolsToAdd):
+                tool = random.choice(toolsToAdd)
+                while tool == "axe":
+                    tool = random.choice(toolsToAdd)
+                tile.changeTreasure(Treasure(tool))
+                forestTools += 1
+                toolsToAdd.remove(tool)
+        elif tile.name == "rock":
+            if quarryTools < toolLimit and toolsToAdd.count("pickaxe") != len(toolsToAdd):
+                tool = random.choice(toolsToAdd)
+                while tool == "pickaxe":
+                    tool = random.choice(toolsToAdd)
+                tile.changeTreasure(Treasure(tool))
+                quarryTools += 1
+                toolsToAdd.remove(tool)
+        elif tile.name == "ice":
+            if arcticTools < toolLimit and toolsToAdd.count("hammer") != len(toolsToAdd):
+                tool = random.choice(toolsToAdd)
+                while tool == "hammer":
+                    tool = random.choice(toolsToAdd)
+                tile.changeTreasure(Treasure(tool))
+                arcticTools += 1
+                toolsToAdd.remove(tool)
+        elif tile.name == "wheat":
+            if farmTools < toolLimit and toolsToAdd.count("scythe") != len(toolsToAdd):
+                tool = random.choice(toolsToAdd)
+                while tool == "scythe":
+                    tool = random.choice(toolsToAdd)
+                tile.changeTreasure(Treasure(tool))
+                farmTools += 1
+                toolsToAdd.remove(tool)
+        else:
+            tool = random.choice(toolsToAdd)
+            toolsToAdd.remove(tool)
+            tile.changeTreasure(Treasure(tool))
+    
     return randomMap
 
 def setStartLocations():
@@ -695,26 +786,7 @@ def setStartLocations():
                 
 # the main grid containing every piece of terrain and its location
 grid = [[Terrain(0, 0, "ground", False, 0)] * biomeLength * int(math.sqrt(biomesPerMap))] * biomeLength * int(math.sqrt(biomesPerMap))
-screenGrid = [[0] * 13 for i in range(13)]
 you = Player(5, 5, 250, "Josh")
-
-def updateScreenGrid():
-    global screenGrid
-    for i in range(13):
-        for j in range(13):
-            gridX = you.row - 6 + i
-            if gridX >= biomeLength * int(math.sqrt(biomesPerMap)):
-                gridX -= biomeLength * int(math.sqrt(biomesPerMap))
-            elif gridX <= -biomeLength * int(math.sqrt(biomesPerMap)):
-                gridX += biomeLength * int(math.sqrt(biomesPerMap))
-            gridY = you.col - 6 + j
-            if gridY >= biomeLength * int(math.sqrt(biomesPerMap)):
-                gridY -= biomeLength * int(math.sqrt(biomesPerMap))
-            elif gridY <= -biomeLength * int(math.sqrt(biomesPerMap)):
-                gridY += biomeLength * int(math.sqrt(biomesPerMap))
-            screenGrid[i][j] = grid[gridX][gridY]
-
-updateScreenGrid()
 
 def useTool(row, col):
     global toolInUse
@@ -747,33 +819,40 @@ def useTool(row, col):
             grid[row][col].isDestroyed = True
 
 def handleGameEvents():
-    global condition, toolImage, toolTimer
+    global condition, toolImage, toolTimer, keysPressed, keysReleased
+    keysPressed = ""
+    keysReleased = ""
     for event in pygame.event.get():
         if event.type == QUIT:
             pygame.quit()
             os._exit(1)
         elif event.type == KEYDOWN:
             if event.key == moveLeftKey:
+                keysPressed += "left "
                 if len(you.direction) == 0:
                     you.changeOrientation("left")
                 if "left" not in you.direction:
                     you.direction.append("left")
             elif event.key == moveRightKey:
+                keysPressed += "right "
                 if len(you.direction) == 0:
                     you.changeOrientation("right")
                 if "right" not in you.direction:
                     you.direction.append("right")
             elif event.key == moveDownKey:
+                keysPressed += "down "
                 if len(you.direction) == 0:
                     you.changeOrientation("front")
                 if "down" not in you.direction:
                     you.direction.append("down")
             elif event.key == moveUpKey:
+                keysPressed += "up "
                 if len(you.direction) == 0:
                     you.changeOrientation("back")
                 if "up" not in you.direction:
                     you.direction.append("up")
             elif event.key == useToolKey:
+                keysPressed += "use "
                 if you.orientation == "right": # facing right
                     if you.col == len(grid[0]) - 1: # check if user is at rightmost edge of map, if so, prevent IndexError
                         useTool(you.row, 0)
@@ -789,6 +868,7 @@ def handleGameEvents():
                 elif you.orientation == "back": # facing up
                     useTool(you.row - 1, you.col)
             elif event.key == cycleToolLeftKey:
+                keysPressed += "lcycle "
                 needToChange = True
                 while needToChange or you.currentTool[:3] == "no ":
                     you.currentTool = you.tools[you.tools.index(you.currentTool) - 1]
@@ -796,6 +876,7 @@ def handleGameEvents():
                 toolImage = pygame.image.load("images/tools/" + you.currentTool + ".png")
                 toolTimer = 0.5
             elif event.key == cycleToolRightKey:
+                keysPressed += "rcycle "
                 needToChange = True
                 while needToChange or you.currentTool[:3] == "no ":
                     if you.tools.index(you.currentTool) == len(you.tools) - 1:
@@ -807,6 +888,7 @@ def handleGameEvents():
                 toolTimer = 0.5
         elif event.type == KEYUP:
             if event.key == moveLeftKey:
+                keysReleased += "left "
                 if "left" in you.direction:
                     you.direction.remove("left")
                 if "down" in you.direction:
@@ -816,6 +898,7 @@ def handleGameEvents():
                 elif "right" in you.direction:
                     you.changeOrientation("right")
             elif event.key == moveRightKey:
+                keysReleased += "right "
                 if "right" in you.direction:
                     you.direction.remove("right")
                 if "down" in you.direction:
@@ -825,6 +908,7 @@ def handleGameEvents():
                 elif "left" in you.direction:
                     you.changeOrientation("left")
             elif event.key == moveDownKey:
+                keysReleased += "down "
                 if "down" in you.direction:
                     you.direction.remove("down")
                 if "left" in you.direction:
@@ -834,6 +918,7 @@ def handleGameEvents():
                 elif "up" in you.direction:
                     you.direction.remove("up")
             elif event.key == moveUpKey:
+                keysReleased += "up "
                 if "up" in you.direction:
                     you.direction.remove("up")
                 if "left" in you.direction:
@@ -876,7 +961,6 @@ def characterSelection(hostCharacter):
                     else:
                         currentName += 1
                 elif event.key == useToolKey:
-                    ##TODO: give error to client when trying to choose host's chosen character
                     if NAMES[currentName] != hostCharacter:
                         condition = False
         SCREEN.fill(BLACK)
@@ -902,8 +986,11 @@ def mapStartUp():
     SCREEN.blit(generateText, (SCREEN_WIDTH // 2 - generateText.get_width() // 2, 350))
     pygame.display.update()
     CLOCK.tick(FPS)
+    if isMultiplayer:
+        biomesPerMap = 9
+        biomeLength = 11
     if isHost:
-        grid = generateRandomMap(biomesPerMap, biomeLength)
+        grid = generateRandomMap(biomesPerMap, biomeLength, isMultiplayer)
     setStartLocations()
     if currentName == 0:
         you = Player(anthonyStartLocation[0], anthonyStartLocation[1], 250, NAMES[currentName].lower())
@@ -915,12 +1002,13 @@ def mapStartUp():
         you = Player(mattStartLocation[0], mattStartLocation[1], 250, NAMES[currentName].lower())
     you.checkForCollisions()
     gameTimer = timeLimit
-    isMultiplayer = False
 
 def gameStartUp():
     global condition
     global highScore1, highScore2, highScore3, highScore4, highScore5
 
+    print("Got to game start up")
+    condition = True
     while condition:
         executeGameFrame()
 
@@ -986,13 +1074,192 @@ def executeGameFrame():
     global gameTimer, toolTimer, condition
     handleGameEvents()
     if isMultiplayer:
-        # server sends key inputs
-        # client reads server key inputs
-        # client sends key inputs
-        # server reads client key inputs
-
-        # other player moves
-        pass
+        if isHost:
+            # server sends key inputs
+            print("sending to client")
+            nf.fSendToClient(serverConnection, keysPressed)
+            nf.fSendToClient(serverConnection, keysReleased)
+            # server reads client key inputs
+            print("receiving from client")
+            clientKeysPressed = nf.fReceiveFromClient(serverConnection)
+            clientKeysReleased = nf.fReceiveFromClient(serverConnection)
+            if "left " in clientKeysPressed:
+                if len(them.direction) == 0:
+                    them.changeOrientation("left")
+                if "left" not in them.direction:
+                    them.direction.append("left")
+            if "right " in clientKeysPressed:
+                if len(them.direction) == 0:
+                    them.changeOrientation("right")
+                if "left" not in them.direction:
+                    them.direction.append("right")
+            if "down " in clientKeysPressed:
+                if len(them.direction) == 0:
+                    them.changeOrientation("down")
+                if "left" not in them.direction:
+                    them.direction.append("down")
+            if "up " in clientKeysPressed:
+                if len(them.direction) == 0:
+                    them.changeOrientation("up")
+                if "left" not in them.direction:
+                    them.direction.append("up")
+            if "use " in clientKeysPressed:
+                if them.orientation == "right": # facing right
+                    if them.col == len(grid[0]) - 1: # check if user is at rightmost edge of map, if so, prevent IndexError
+                        useTool(them.row, 0)
+                    else:
+                        useTool(them.row, them.col + 1)
+                elif them.orientation == "left": # facing left
+                    useTool(them.row, them.col - 1)
+                elif them.orientation == "front": # facing down
+                    if them.row == len(grid) - 1: # check if user is at downmost edge of map, if so, prevent IndexError
+                        useTool(0, them.col)
+                    else:
+                        useTool(them.row + 1, them.col)
+                elif them.orientation == "back": # facing up
+                    useTool(them.row - 1, them.col)
+            if "lcycle " in clientKeysPressed:
+                needToChange = True
+                while needToChange or them.currentTool[:3] == "no ":
+                    them.currentTool = them.tools[them.tools.index(them.currentTool) - 1]
+                    needToChange = False
+            if "rcycle " in clientKeysPressed:
+                needToChange = True
+                while needToChange or them.currentTool[:3] == "no ":
+                    if them.tools.index(them.currentTool) == len(them.tools) - 1:
+                        them.currentTool = them.tools[0]
+                    else:
+                        them.currentTool = them.tools[them.tools.index(them.currentTool) + 1]
+                    needToChange = False
+            if "left " in clientKeysReleased:
+                if "left" in them.direction:
+                    them.direction.remove("left")
+                if "down" in them.direction:
+                    them.changeOrientation("front")
+                elif "up" in them.direction:
+                    them.changeOrientation("back")
+                elif "right" in them.direction:
+                    them.changeOrientation("right")
+            if "right " in clientKeysReleased:
+                if "right" in them.direction:
+                    them.direction.remove("right")
+                if "down" in them.direction:
+                    them.changeOrientation("front")
+                elif "up" in them.direction:
+                    them.changeOrientation("back")
+                elif "left" in them.direction:
+                    them.changeOrientation("left")
+            if "down " in clientKeysReleased:
+                if "down" in them.direction:
+                    them.direction.remove("down")
+                if "left" in them.direction:
+                    them.changeOrientation("left")
+                elif "right" in them.direction:
+                    them.changeOrientation("right")
+                elif "up" in them.direction:
+                    them.direction.remove("up")
+            if "up " in clientKeysReleased:
+                if "up" in them.direction:
+                    them.direction.remove("up")
+                if "left" in them.direction:
+                    them.changeOrientation("left")
+                elif "right" in them.direction:
+                    them.changeOrientation("right")
+                elif "down" in them.direction:
+                    them.changeOrientation("front")
+        else:
+            # client reads server key inputs
+            print("receiving from server")
+            serverKeysPressed = nf.fReceiveFromServer(clientSocket)
+            serverKeysReleased = nf.fReceiveFromServer(clientSocket)
+            # client sends key inputs
+            print("sending to server")
+            nf.fSendToServer(clientSocket, keysPressed)
+            nf.fSendToServer(clientSocket, keysReleased)
+            if "left " in serverKeysPressed:
+                if len(them.direction) == 0:
+                    them.changeOrientation("left")
+                if "left" not in them.direction:
+                    them.direction.append("left")
+            if "right " in serverKeysPressed:
+                if len(them.direction) == 0:
+                    them.changeOrientation("right")
+                if "left" not in them.direction:
+                    them.direction.append("right")
+            if "down " in serverKeysPressed:
+                if len(them.direction) == 0:
+                    them.changeOrientation("down")
+                if "left" not in them.direction:
+                    them.direction.append("down")
+            if "up " in serverKeysPressed:
+                if len(them.direction) == 0:
+                    them.changeOrientation("up")
+                if "left" not in them.direction:
+                    them.direction.append("up")
+            if "use " in serverKeysPressed:
+                if them.orientation == "right": # facing right
+                    if them.col == len(grid[0]) - 1: # check if user is at rightmost edge of map, if so, prevent IndexError
+                        useTool(them.row, 0)
+                    else:
+                        useTool(them.row, them.col + 1)
+                elif them.orientation == "left": # facing left
+                    useTool(them.row, them.col - 1)
+                elif them.orientation == "front": # facing down
+                    if them.row == len(grid) - 1: # check if user is at downmost edge of map, if so, prevent IndexError
+                        useTool(0, them.col)
+                    else:
+                        useTool(them.row + 1, them.col)
+                elif them.orientation == "back": # facing up
+                    useTool(them.row - 1, them.col)
+            if "lcycle " in serverKeysPressed:
+                needToChange = True
+                while needToChange or them.currentTool[:3] == "no ":
+                    them.currentTool = them.tools[them.tools.index(them.currentTool) - 1]
+                    needToChange = False
+            if "rcycle " in serverKeysPressed:
+                needToChange = True
+                while needToChange or them.currentTool[:3] == "no ":
+                    if them.tools.index(them.currentTool) == len(them.tools) - 1:
+                        them.currentTool = them.tools[0]
+                    else:
+                        them.currentTool = them.tools[them.tools.index(them.currentTool) + 1]
+                    needToChange = False
+            if "left " in serverKeysReleased:
+                if "left" in them.direction:
+                    them.direction.remove("left")
+                if "down" in them.direction:
+                    them.changeOrientation("front")
+                elif "up" in them.direction:
+                    them.changeOrientation("back")
+                elif "right" in them.direction:
+                    them.changeOrientation("right")
+            if "right " in serverKeysReleased:
+                if "right" in them.direction:
+                    them.direction.remove("right")
+                if "down" in them.direction:
+                    them.changeOrientation("front")
+                elif "up" in them.direction:
+                    them.changeOrientation("back")
+                elif "left" in them.direction:
+                    them.changeOrientation("left")
+            if "down " in serverKeysReleased:
+                if "down" in them.direction:
+                    them.direction.remove("down")
+                if "left" in them.direction:
+                    them.changeOrientation("left")
+                elif "right" in them.direction:
+                    them.changeOrientation("right")
+                elif "up" in them.direction:
+                    them.direction.remove("up")
+            if "up " in serverKeysReleased:
+                if "up" in them.direction:
+                    them.direction.remove("up")
+                if "left" in them.direction:
+                    them.changeOrientation("left")
+                elif "right" in them.direction:
+                    them.changeOrientation("right")
+                elif "down" in them.direction:
+                    them.changeOrientation("front")
     if "left" in you.direction and "right" in you.direction:
         you.direction.remove("left")
         you.direction.remove("right")
@@ -1000,13 +1267,14 @@ def executeGameFrame():
         you.direction.remove("down")
         you.direction.remove("up")
     you.move()
+    them.move()
     # render new frame: fill screen with solid color, blit the grid, and then blit the player
     SCREEN.fill(BLACK)
-    for i in range(len(screenGrid)):
-        for j in range(len(screenGrid[0])):
-            SCREEN.blit(screenGrid[i][j].image, (50 * (j - 1) - you.dispX + BORDER_WIDTH, 50 * (i - 1) - you.dispY))
-            if screenGrid[i][j].isDestroyed and screenGrid[i][j].treasure != 0:
-                SCREEN.blit(screenGrid[i][j].treasure.image, (50 * (j - 1) - you.dispX + BORDER_WIDTH, 50 * (i - 1) - you.dispY))
+    for i in range(len(you.screenGrid)):
+        for j in range(len(you.screenGrid[0])):
+            SCREEN.blit(you.screenGrid[i][j].image, (50 * (j - 1) - you.dispX + BORDER_WIDTH, 50 * (i - 1) - you.dispY))
+            if you.screenGrid[i][j].isDestroyed and you.screenGrid[i][j].treasure != 0:
+                SCREEN.blit(you.screenGrid[i][j].treasure.image, (50 * (j - 1) - you.dispX + BORDER_WIDTH, 50 * (i - 1) - you.dispY))
     if toolInUse:
         toolAnimation = pygame.image.load("images/tools/" + you.currentTool + " " + you.orientation + " " + str(you.toolAnimation) + ".png").convert()
         toolAnimation.set_colorkey(WHITE)
@@ -1024,61 +1292,65 @@ def executeGameFrame():
         pass
     if toolTimer > 0.0:
         SCREEN.blit(toolImage, (you.x + 5, you.y - 45))
-    pygame.draw.rect(SCREEN, BLACK, (0, 0, BORDER_WIDTH, SCREEN_HEIGHT))
-    pygame.draw.rect(SCREEN, BLACK, (SCREEN_WIDTH - BORDER_WIDTH, 0, BORDER_WIDTH, SCREEN_HEIGHT))
+    SCREEN.blit(leftBorder, (0, 0))
+    SCREEN.blit(rightBorder, (SCREEN_WIDTH - rightBorder.get_width(), 0))
     minutesLeft = int(gameTimer) // 60
     secondsLeft = int(gameTimer) - 60 * (int(gameTimer) // 60)
     if secondsLeft < 10:
         timeLeft = str(minutesLeft) + ":0" + str(secondsLeft)
     else:
         timeLeft = str(minutesLeft) + ":" + str(secondsLeft)
-    timerImage = font.render(timeLeft, True, WHITE, BLACK)
-    invImage = font.render("Inventory:", True, WHITE, BLACK)
-    moneyImage = font.render("$" + str(you.money), True, WHITE, BLACK)
-    SCREEN.blit(timerImage, (0, 0))
-    SCREEN.blit(moneyImage, (0, SCREEN_HEIGHT // 2))
-    SCREEN.blit(invImage, (0, SCREEN_HEIGHT // 1.35))
+    timerImage = font.render(timeLeft, True, BLACK, WHITE)
+    invImage = font.render("Inventory:", True, BLACK, WHITE)
+    moneyImage = font.render("$" + str(you.money), True, BLACK, WHITE)
+    timerImage.set_colorkey(WHITE)
+    invImage.set_colorkey(WHITE)
+    moneyImage.set_colorkey(WHITE)
+    SCREEN.blit(timerImage, (30, 60))
+    SCREEN.blit(moneyImage, (30, 190))
+    SCREEN.blit(invImage, (30, 300))
     if "shovel" in you.tools:
         if you.currentTool == "shovel":
-            SCREEN.blit(shovImage, (140, SCREEN_HEIGHT //1.2))
+            SCREEN.blit(shovImage, (150, 350))
         else:
-            SCREEN.blit(shovImage1, (140, SCREEN_HEIGHT //1.2))
+            SCREEN.blit(shovImage1, (150, 350))
     else:
-        SCREEN.blit(invalidToolImage, (140, SCREEN_HEIGHT //1.2))
+        SCREEN.blit(invalidToolImage, (150, 350))
 
     if "axe" in you.tools:
         if you.currentTool == "axe":
-            SCREEN.blit(axeImage, (0, SCREEN_HEIGHT //1.2))
+            SCREEN.blit(axeImage, (10, 350))
         else:
-            SCREEN.blit(axeImage1, (0, SCREEN_HEIGHT //1.2))
+            SCREEN.blit(axeImage1, (10, 350))
     else:
-        SCREEN.blit(invalidToolImage, (0, SCREEN_HEIGHT //1.2))
+        SCREEN.blit(invalidToolImage, (10, 350))
 
     if "pickaxe" in you.tools:
         if you.currentTool == "pickaxe":
-            SCREEN.blit(pickaxeImage, (35, SCREEN_HEIGHT //1.2))
+            SCREEN.blit(pickaxeImage, (45, 350))
         else:
-            SCREEN.blit(pickaxeImage1, (35, SCREEN_HEIGHT //1.2))
+            SCREEN.blit(pickaxeImage1, (45, 350))
     else:
-        SCREEN.blit(invalidToolImage, (35, SCREEN_HEIGHT //1.2))
+        SCREEN.blit(invalidToolImage, (45, 350))
 
     if "hammer" in you.tools:
         if you.currentTool == "hammer":
-            SCREEN.blit(hammerImage, (70, SCREEN_HEIGHT //1.2))
+            SCREEN.blit(hammerImage, (80, 350))
         else:
-            SCREEN.blit(hammerImage1, (70, SCREEN_HEIGHT //1.2))
+            SCREEN.blit(hammerImage1, (80, 350))
     else:
-        SCREEN.blit(invalidToolImage, (70, SCREEN_HEIGHT //1.2))
+        SCREEN.blit(invalidToolImage, (80, 350))
 
     if "scythe" in you.tools:
         if you.currentTool == "scythe":
-             SCREEN.blit(scytheImage, (105, SCREEN_HEIGHT //1.2))
+             SCREEN.blit(scytheImage, (115, 350))
         else:
-             SCREEN.blit(scytheImage1, (105, SCREEN_HEIGHT //1.2))
+             SCREEN.blit(scytheImage1, (115, 350))
     else:
-         SCREEN.blit(invalidToolImage, (105, SCREEN_HEIGHT //1.2)) 
-       
+         SCREEN.blit(invalidToolImage, (115, 350)) 
 
+    if you.hasBridge:
+        SCREEN.blit(bridgeImage, (80, 450))
     
     toolTimer -= timePassed
     if toolTimer < 0.0:
@@ -1181,181 +1453,160 @@ while True:
             pygame.display.update()
             CLOCK.tick(FPS)
            
-            if selection == 0:
-                #Start server
-                IPAddr = nf.fGetIP()
-                SCREEN.blit(title, (BORDER_WIDTH, 0))
-                fontObj = font.render(("Your IP is: " + IPAddr), True, YELLOW, BLACK)
-                fontObj.set_colorkey(BLACK)
-                SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                pygame.display.update()
-                CLOCK.tick(FPS)
-                serverSocket = nf.fCreateServer(PORT)
-                isHost = True
+        if selection == 0:
+            #Start server
+            IPAddr = nf.fGetIP()
+            SCREEN.blit(title, (BORDER_WIDTH, 0))
+            fontObj = font.render(("Your IP is: " + IPAddr), True, YELLOW, BLACK)
+            fontObj.set_colorkey(BLACK)
+            SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
+            pygame.display.update()
+            CLOCK.tick(FPS)
+            serverSocket = nf.fCreateServer(PORT)
+            isHost = True
 
-                flag = True
-                while flag:
-                    try:
-                        serverSocket.settimeout(35) # Time server waits for client to connect
-                        serverConnection = nf.fCreateConnection(serverSocket)
-                    except socket.timeout:
-                        SCREEN.blit(title, (BORDER_WIDTH, 0))
-                        fontObj = font.render("Client failed to connect.", True, YELLOW, BLACK)
-                        fontObj.set_colorkey(BLACK)
-                        SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                        pygame.display.update()
-                        CLOCK.tick(FPS)
-                        time.sleep(5)
-                        nf.fCloseServer(serverSocket)
-                        pygame.quit()
-                        os._exit(0)
-                        break
-                    except:
-                        raise
-                    else:
-                        SCREEN.blit(title, (BORDER_WIDTH, 0))
-                        fontObj = font.render("Client connected.", True, YELLOW, BLACK)
-                        fontObj.set_colorkey(BLACK)
-                        SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                        pygame.display.update()
-                        CLOCK.tick(FPS)
-
-                        serverConnection.setblocking(1)
-                        nf.fSendToClient(serverConnection, "connected")
-                        isMultiplayer = True
-                        
-                        #Choose character and tell client
-                        chosenCharacter = characterSelection("none")
-                        nf.fSendToClient(serverConnection, chosenCharacter)
-
-                        #Create map and send to client
-                        mapStartUp()
-         
-                        #Sending grid to client
-                        nf.fSendMapToClient(serverConnection, grid)
-
-                        #Checking that client is ready
-                        clientStatus = nf.fReceiveFromClient(serverConnection)
-
-                        #If client is ready, start game
-                        if clientStatus == "ready":
-                            SCREEN.blit(title, (BORDER_WIDTH, 0))
-                            fontObj = font.render("Starting game...", True, YELLOW, BLACK)
-                            fontObj.set_colorkey(BLACK)
-                            SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                            pygame.display.update()
-                            CLOCK.tick(FPS)
-                            time.sleep(2)
-                            gameStartUp()
-
-                        #time.sleep(5)
-                        #nf.fCloseServer(serverSocket) #this is for debugging
-                        #pygame.quit()
-                        #os._exit(0)
-                        
-                        #send/receive here
-                        flag = False
-                        
-            elif selection == 1:
-                #Start client
-                isHost = False
-                SCREEN.blit(title, (BORDER_WIDTH, 0))
-                fontObj = font.render("What is the host's IP?", True, YELLOW, BLACK)
-                fontObj.set_colorkey(BLACK)
-                SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                pygame.display.update()
-                CLOCK.tick(FPS)
-
-                pygame.draw.rect(SCREEN, BLACK, (100, 450, 345, 35))
-                pygame.display.update()
-                CLOCK.tick(FPS)
-                ipString = []
-                while True:
-                    while True:
-                        event = pygame.event.poll()
-                        if event.type == KEYDOWN:
-                            inkey = event.key
-                            break
-                        elif event.type == QUIT:
-                            pygame.quit()
-                            os._exit(0)
-                        else:
-                            pass
-                    if inkey == K_BACKSPACE:
-                        ipString = ipString[0:-1]
-                    elif inkey == K_RETURN:
-                        break
-                    elif inkey <= 127:
-                        ipString.append(chr(inkey))
-                    ipStr = ''.join(ipString)
-                    fontObj2 = font.render(ipStr, True, YELLOW, BLACK)
-                    fontObj2.set_colorkey(BLACK)
-                    pygame.draw.rect(SCREEN, BLACK, (100, 450, 350, 35)) 
-                    SCREEN.blit(fontObj2, (SCREEN_WIDTH // 2 - fontObj2.get_width() // 2, 450))
-                    pygame.display.update()
-                    CLOCK.tick(FPS)
-
-                clientSocket = nf.fCreateClient(ipStr, PORT)
-                SCREEN.blit(title, (BORDER_WIDTH, 0))
-                fontObj = font.render("Connecting...", True, YELLOW, BLACK)
-                fontObj.set_colorkey(BLACK)
-                SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                pygame.display.update()
-                CLOCK.tick(FPS)
-
-                data = nf.fReceiveFromServer(clientSocket)
-                if data == "connected":
+            flag = True
+            while flag:
+                try:
+                    serverSocket.settimeout(35) # Time server waits for client to connect
+                    serverConnection = nf.fCreateConnection(serverSocket)
+                except socket.timeout:
                     SCREEN.blit(title, (BORDER_WIDTH, 0))
-                    fontObj = font.render("Successfully connected.", True, YELLOW, BLACK)
+                    fontObj = font.render("Client failed to connect.", True, YELLOW, BLACK)
                     fontObj.set_colorkey(BLACK)
                     SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
                     pygame.display.update()
                     CLOCK.tick(FPS)
+                    time.sleep(5)
+                    nf.fCloseServer(serverSocket)
+                    pygame.quit()
+                    os._exit(0)
+                    break
+                except:
+                    raise
+                else:
+                    SCREEN.blit(title, (BORDER_WIDTH, 0))
+                    fontObj = font.render("Client connected.", True, YELLOW, BLACK)
+                    fontObj.set_colorkey(BLACK)
+                    SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
+                    pygame.display.update()
+                    CLOCK.tick(FPS)
+
+                    serverConnection.setblocking(1)
+                    nf.fSendToClient(serverConnection, "connected")
                     isMultiplayer = True
+                    
+                    #Choose character and tell client
+                    chosenCharacter = characterSelection("none")
+                    nf.fSendToClient(serverConnection, chosenCharacter)
 
-                time.sleep(2)
-                #Receive host's chosen character
+                    #Create map and send to client
+                    mapStartUp()
+     
+                    #Sending grid to client
+                    nf.fSendMapToClient(serverConnection, grid)
+
+                    #Checking that client is ready
+                    clientStatus = nf.fReceiveFromClient(serverConnection)
+
+                    #If client is ready, start game
+                    if clientStatus == "ready":
+                        SCREEN.blit(title, (BORDER_WIDTH, 0))
+                        fontObj = font.render("Starting game...", True, YELLOW, BLACK)
+                        fontObj.set_colorkey(BLACK)
+                        SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
+                        pygame.display.update()
+                        CLOCK.tick(FPS)
+                        time.sleep(2)
+                        gameStartUp()
+
+                    
+                    flag = False
+                    
+        elif selection == 1:
+            #Start client
+            isHost = False
+            fontObj = font.render("What is the host's IP?", True, YELLOW, BLACK)
+            fontObj.set_colorkey(BLACK)
+            ipString = []
+            clientLoop = True
+            while clientLoop:
+                for event in pygame.event.get():
+                    if event.type == KEYDOWN:
+                        if event.key == K_BACKSPACE:
+                            ipString = ipString[0:-1]
+                        elif event.key == K_RETURN:
+                            clientLoop = False
+                        elif event.key <= 127:
+                            ipString.append(chr(event.key))
+                    elif event.type == QUIT:
+                        pygame.quit()
+                        os._exit(0)
+                ipStr = ''.join(ipString)
+                fontObj2 = font.render(ipStr, True, YELLOW, BLACK)
+                fontObj2.set_colorkey(BLACK)
+                SCREEN.fill(BLACK)
                 SCREEN.blit(title, (BORDER_WIDTH, 0))
-                fontObj = font.render("Host is choosing character", True, YELLOW, BLACK)
+                SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
+                SCREEN.blit(fontObj2, (SCREEN_WIDTH // 2 - fontObj2.get_width() // 2, 450))
+                pygame.display.update()
+                CLOCK.tick(FPS)
+
+            clientSocket = nf.fCreateClient(ipStr, PORT)
+            SCREEN.blit(title, (BORDER_WIDTH, 0))
+            fontObj = font.render("Connecting...", True, YELLOW, BLACK)
+            fontObj.set_colorkey(BLACK)
+            SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
+            pygame.display.update()
+            CLOCK.tick(FPS)
+
+            data = nf.fReceiveFromServer(clientSocket)
+            if data == "connected":
+                SCREEN.blit(title, (BORDER_WIDTH, 0))
+                fontObj = font.render("Successfully connected.", True, YELLOW, BLACK)
                 fontObj.set_colorkey(BLACK)
                 SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
                 pygame.display.update()
                 CLOCK.tick(FPS)
+                isMultiplayer = True
 
-                hostCharacter = nf.fReceiveFromServer(clientSocket)
-                
-                #Client chooses character different from host's
-                chosenCharacter = characterSelection(hostCharacter)
+            time.sleep(2)
+            #Receive host's chosen character
+            SCREEN.blit(title, (BORDER_WIDTH, 0))
+            fontObj = font.render("Host is choosing character", True, YELLOW, BLACK)
+            fontObj.set_colorkey(BLACK)
+            SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
+            pygame.display.update()
+            CLOCK.tick(FPS)
 
-                #Receive grid
-                SCREEN.blit(title, (BORDER_WIDTH, 0))
-                fontObj = font.render("Receiving map from server", True, YELLOW, BLACK)
-                fontObj.set_colorkey(BLACK)
-                SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                pygame.display.update()
-                CLOCK.tick(FPS)
-                grid = nf.fReceiveMapFromServer(clientSocket)
+            hostCharacter = nf.fReceiveFromServer(clientSocket)
+            
+            #Client chooses character different from host's
+            chosenCharacter = characterSelection(hostCharacter)
 
-                #isHost being set to False will prevent a new grid from being created
-                mapStartUp()
-                
-                #Tell server that client is ready
-                nf.fSendToServer(clientSocket, "ready")
+            #Receive grid
+            SCREEN.blit(title, (BORDER_WIDTH, 0))
+            fontObj = font.render("Receiving map from server", True, YELLOW, BLACK)
+            fontObj.set_colorkey(BLACK)
+            SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
+            pygame.display.update()
+            CLOCK.tick(FPS)
+            grid = nf.fReceiveMapFromServer(clientSocket)
 
-                SCREEN.blit(title, (BORDER_WIDTH, 0))
-                fontObj = font.render("Starting game...", True, YELLOW, BLACK)
-                fontObj.set_colorkey(BLACK)
-                SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
-                pygame.display.update()
-                CLOCK.tick(FPS)
-                time.sleep(2)
-                gameStartUp()
-                
-                 
-                #nf.fCloseClient(clientSocket)  #this is for debugging
-                #time.sleep(5)
-                #pygame.quit()
-                #os._exit(0)
+            #isHost being set to False will prevent a new grid from being created
+            mapStartUp()
+            
+            #Tell server that client is ready
+            nf.fSendToServer(clientSocket, "ready")
+
+            SCREEN.blit(title, (BORDER_WIDTH, 0))
+            fontObj = font.render("Starting game...", True, YELLOW, BLACK)
+            fontObj.set_colorkey(BLACK)
+            SCREEN.blit(fontObj, (SCREEN_WIDTH // 2 - fontObj.get_width() // 2, 400))
+            pygame.display.update()
+            CLOCK.tick(FPS)
+            time.sleep(2)
+            gameStartUp()
                 
     elif selection == 2: # high scores
         scoreImage1 = font.render("1: $" + str(highScore1), True, WHITE, BLACK)
