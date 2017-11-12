@@ -51,10 +51,10 @@ them = 0 # the other player
 isMultiplayer = False
 isHost = False # determines if you are server or client for multiplayer
 currentName = 0
+otherCharacter = ""
 toolImage = 0
 timeLimit = 180.0 # time limit in seconds
 toolTimer = 0.0 # the length of time the tool image is on screen for
-toolInUse = False
 gameTimer = 0.0
 keysPressed = ""
 keysReleased = ""
@@ -240,6 +240,7 @@ class Player(object):
         else:
             self.tools = ["no axe", "no pickaxe", "hammer", "no scythe", "shovel"]
         self.toolAnimation = 0 # determines the animation frame of the tool being used
+        self.toolInUse = False
         self.hasBridge = False
         self.usingBridge = False
 
@@ -403,14 +404,13 @@ class Player(object):
         # moves player in the direction specified and animates them
         # if the direction is a compass direction, they move far
         # if the direction is a diagonal, they move less (picture unit circle)
-        global toolInUse
-        if toolInUse:
+        if self.toolInUse:
             if self.toolAnimation == 3:
                 self.toolAnimation = 0
-                toolInUse = False
+                self.toolInUse = False
             else:
                 self.toolAnimation += 1
-        if toolInUse == False:
+        if self.toolInUse == False:
             if "right" in self.direction and "down" in self.direction:
                 self.dispX += self.diagonalMovement
                 self.dispY += self.diagonalMovement
@@ -438,6 +438,35 @@ class Player(object):
             self.animationFrame = 1
         self.checkForCollisions()
         self.changeImage()
+        
+    def useTool(self, row, col):
+        self.toolInUse = True
+        if self.currentTool == "shovel":
+            if grid[row][col].name == "ground":
+                grid[row][col].changeTerrain("dug up grass", False)
+                grid[row][col].isDestroyed = True
+            elif grid[row][col].name == "snowy":
+                grid[row][col].changeTerrain("dug up snow", False)
+                grid[row][col].isDestroyed = True
+            elif grid[row][col].name == "farm ground":
+                grid[row][col].changeTerrain("dug up farm", False)
+                grid[row][col].isDestroyed = True
+        elif self.currentTool == "axe":
+            if grid[row][col].name == "tree":
+                grid[row][col].changeTerrain("tree stump", False)
+                grid[row][col].isDestroyed = True
+        elif self.currentTool == "pickaxe":
+            if grid[row][col].name == "rock":
+                grid[row][col].changeTerrain("crushed rock", False)
+                grid[row][col].isDestroyed = True
+        elif self.currentTool == "scythe":
+            if grid[row][col].name == "wheat":
+                grid[row][col].changeTerrain("sliced wheat", False)
+                grid[row][col].isDestroyed = True
+        elif self.currentTool == "hammer":
+            if grid[row][col].name == "ice":
+                grid[row][col].changeTerrain("crushed ice", False)
+                grid[row][col].isDestroyed = True
 
 
 def createBiomeTreasure(numberOfTreasures):
@@ -787,36 +816,7 @@ def setStartLocations():
 # the main grid containing every piece of terrain and its location
 grid = [[Terrain(0, 0, "ground", False, 0)] * biomeLength * int(math.sqrt(biomesPerMap))] * biomeLength * int(math.sqrt(biomesPerMap))
 you = Player(5, 5, 250, "Josh")
-
-def useTool(row, col):
-    global toolInUse
-    toolInUse = True
-    if you.currentTool == "shovel":
-        if grid[row][col].name == "ground":
-            grid[row][col].changeTerrain("dug up grass", False)
-            grid[row][col].isDestroyed = True
-        elif grid[row][col].name == "snowy":
-            grid[row][col].changeTerrain("dug up snow", False)
-            grid[row][col].isDestroyed = True
-        elif grid[row][col].name == "farm ground":
-            grid[row][col].changeTerrain("dug up farm", False)
-            grid[row][col].isDestroyed = True
-    elif you.currentTool == "axe":
-        if grid[row][col].name == "tree":
-            grid[row][col].changeTerrain("tree stump", False)
-            grid[row][col].isDestroyed = True
-    elif you.currentTool == "pickaxe":
-        if grid[row][col].name == "rock":
-            grid[row][col].changeTerrain("crushed rock", False)
-            grid[row][col].isDestroyed = True
-    elif you.currentTool == "scythe":
-        if grid[row][col].name == "wheat":
-            grid[row][col].changeTerrain("sliced wheat", False)
-            grid[row][col].isDestroyed = True
-    elif you.currentTool == "hammer":
-        if grid[row][col].name == "ice":
-            grid[row][col].changeTerrain("crushed ice", False)
-            grid[row][col].isDestroyed = True
+them = Player(5, 5, 250, "Josh")
 
 def handleGameEvents():
     global condition, toolImage, toolTimer, keysPressed, keysReleased
@@ -855,18 +855,18 @@ def handleGameEvents():
                 keysPressed += "use "
                 if you.orientation == "right": # facing right
                     if you.col == len(grid[0]) - 1: # check if user is at rightmost edge of map, if so, prevent IndexError
-                        useTool(you.row, 0)
+                        you.useTool(you.row, 0)
                     else:
-                        useTool(you.row, you.col + 1)
+                        you.useTool(you.row, you.col + 1)
                 elif you.orientation == "left": # facing left
-                    useTool(you.row, you.col - 1)
+                    you.useTool(you.row, you.col - 1)
                 elif you.orientation == "front": # facing down
                     if you.row == len(grid) - 1: # check if user is at downmost edge of map, if so, prevent IndexError
-                        useTool(0, you.col)
+                        you.useTool(0, you.col)
                     else:
-                        useTool(you.row + 1, you.col)
+                        you.useTool(you.row + 1, you.col)
                 elif you.orientation == "back": # facing up
-                    useTool(you.row - 1, you.col)
+                    you.useTool(you.row - 1, you.col)
             elif event.key == cycleToolLeftKey:
                 keysPressed += "lcycle "
                 needToChange = True
@@ -928,7 +928,7 @@ def handleGameEvents():
                 elif "down" in you.direction:
                     you.changeOrientation("front")
 
-def characterSelection(hostCharacter):
+def characterSelection(otherCaracter):
     global condition, currentName
     currentName = 0
     condition = True
@@ -961,7 +961,7 @@ def characterSelection(hostCharacter):
                     else:
                         currentName += 1
                 elif event.key == useToolKey:
-                    if NAMES[currentName] != hostCharacter:
+                    if NAMES[currentName] != otherCharacter:
                         condition = False
         SCREEN.fill(BLACK)
         SCREEN.blit(title, (BORDER_WIDTH, 0))
@@ -977,7 +977,7 @@ def characterSelection(hostCharacter):
     return NAMES[currentName]
 
 def mapStartUp(): 
-    global biomesPerMap, biomeLength, condition, currentName, gameTimer, grid, you
+    global biomesPerMap, biomeLength, condition, currentName, gameTimer, grid, you, them
     condition = True
     generateText = font.render("Generating map; this may take a while...", True, YELLOW, BLACK)
     generateText.set_colorkey(BLACK)
@@ -1000,14 +1000,23 @@ def mapStartUp():
         you = Player(joshStartLocation[0], joshStartLocation[1], 250, NAMES[currentName].lower())
     else:
         you = Player(mattStartLocation[0], mattStartLocation[1], 250, NAMES[currentName].lower())
+    if isMultiplayer:
+        if otherCharacter == "Anthony":
+            them = Player(anthonyStartLocation[0], anthonyStartLocation[1], 250, "anthony")
+        elif otherCharacter == "Caitlin":
+            them = Player(caitlinStartLocation[0], caitlinStartLocation[1], 250, "caitlin")
+        elif otherCharacter == "Josh":
+            them = Player(joshStartLocation[0], joshStartLocation[1], 250, "josh")
+        else:
+            them = Player(mattStartLocation[0], mattStartLocation[1], 250, "matt")
     you.checkForCollisions()
+    them.checkForCollisions()
     gameTimer = timeLimit
 
 def gameStartUp():
     global condition
     global highScore1, highScore2, highScore3, highScore4, highScore5
 
-    print("Got to game start up")
     condition = True
     while condition:
         executeGameFrame()
@@ -1075,13 +1084,9 @@ def executeGameFrame():
     handleGameEvents()
     if isMultiplayer:
         if isHost:
-            # server sends key inputs
-            print("sending to client")
             nf.fSendToClient(serverConnection, keysPressed)
-            nf.fSendToClient(serverConnection, keysReleased)
-            # server reads client key inputs
-            print("receiving from client")
             clientKeysPressed = nf.fReceiveFromClient(serverConnection)
+            nf.fSendToClient(serverConnection, keysReleased)
             clientKeysReleased = nf.fReceiveFromClient(serverConnection)
             if "left " in clientKeysPressed:
                 if len(them.direction) == 0:
@@ -1095,29 +1100,29 @@ def executeGameFrame():
                     them.direction.append("right")
             if "down " in clientKeysPressed:
                 if len(them.direction) == 0:
-                    them.changeOrientation("down")
+                    them.changeOrientation("front")
                 if "left" not in them.direction:
                     them.direction.append("down")
             if "up " in clientKeysPressed:
                 if len(them.direction) == 0:
-                    them.changeOrientation("up")
+                    them.changeOrientation("back")
                 if "left" not in them.direction:
                     them.direction.append("up")
             if "use " in clientKeysPressed:
                 if them.orientation == "right": # facing right
                     if them.col == len(grid[0]) - 1: # check if user is at rightmost edge of map, if so, prevent IndexError
-                        useTool(them.row, 0)
+                        them.useTool(them.row, 0)
                     else:
-                        useTool(them.row, them.col + 1)
+                        them.useTool(them.row, them.col + 1)
                 elif them.orientation == "left": # facing left
-                    useTool(them.row, them.col - 1)
+                    them.useTool(them.row, them.col - 1)
                 elif them.orientation == "front": # facing down
                     if them.row == len(grid) - 1: # check if user is at downmost edge of map, if so, prevent IndexError
-                        useTool(0, them.col)
+                        them.useTool(0, them.col)
                     else:
-                        useTool(them.row + 1, them.col)
+                        them.useTool(them.row + 1, them.col)
                 elif them.orientation == "back": # facing up
-                    useTool(them.row - 1, them.col)
+                    them.useTool(them.row - 1, them.col)
             if "lcycle " in clientKeysPressed:
                 needToChange = True
                 while needToChange or them.currentTool[:3] == "no ":
@@ -1168,13 +1173,9 @@ def executeGameFrame():
                 elif "down" in them.direction:
                     them.changeOrientation("front")
         else:
-            # client reads server key inputs
-            print("receiving from server")
             serverKeysPressed = nf.fReceiveFromServer(clientSocket)
-            serverKeysReleased = nf.fReceiveFromServer(clientSocket)
-            # client sends key inputs
-            print("sending to server")
             nf.fSendToServer(clientSocket, keysPressed)
+            serverKeysReleased = nf.fReceiveFromServer(clientSocket)
             nf.fSendToServer(clientSocket, keysReleased)
             if "left " in serverKeysPressed:
                 if len(them.direction) == 0:
@@ -1188,29 +1189,29 @@ def executeGameFrame():
                     them.direction.append("right")
             if "down " in serverKeysPressed:
                 if len(them.direction) == 0:
-                    them.changeOrientation("down")
+                    them.changeOrientation("front")
                 if "left" not in them.direction:
                     them.direction.append("down")
             if "up " in serverKeysPressed:
                 if len(them.direction) == 0:
-                    them.changeOrientation("up")
+                    them.changeOrientation("back")
                 if "left" not in them.direction:
                     them.direction.append("up")
             if "use " in serverKeysPressed:
                 if them.orientation == "right": # facing right
                     if them.col == len(grid[0]) - 1: # check if user is at rightmost edge of map, if so, prevent IndexError
-                        useTool(them.row, 0)
+                        them.useTool(them.row, 0)
                     else:
-                        useTool(them.row, them.col + 1)
+                        them.useTool(them.row, them.col + 1)
                 elif them.orientation == "left": # facing left
-                    useTool(them.row, them.col - 1)
+                    them.useTool(them.row, them.col - 1)
                 elif them.orientation == "front": # facing down
                     if them.row == len(grid) - 1: # check if user is at downmost edge of map, if so, prevent IndexError
-                        useTool(0, them.col)
+                        them.useTool(0, them.col)
                     else:
-                        useTool(them.row + 1, them.col)
+                        them.useTool(them.row + 1, them.col)
                 elif them.orientation == "back": # facing up
-                    useTool(them.row - 1, them.col)
+                    them.useTool(them.row - 1, them.col)
             if "lcycle " in serverKeysPressed:
                 needToChange = True
                 while needToChange or them.currentTool[:3] == "no ":
@@ -1275,7 +1276,7 @@ def executeGameFrame():
             SCREEN.blit(you.screenGrid[i][j].image, (50 * (j - 1) - you.dispX + BORDER_WIDTH, 50 * (i - 1) - you.dispY))
             if you.screenGrid[i][j].isDestroyed and you.screenGrid[i][j].treasure != 0:
                 SCREEN.blit(you.screenGrid[i][j].treasure.image, (50 * (j - 1) - you.dispX + BORDER_WIDTH, 50 * (i - 1) - you.dispY))
-    if toolInUse:
+    if you.toolInUse:
         toolAnimation = pygame.image.load("images/tools/" + you.currentTool + " " + you.orientation + " " + str(you.toolAnimation) + ".png").convert()
         toolAnimation.set_colorkey(WHITE)
         if you.orientation == "right":
@@ -1499,6 +1500,7 @@ while True:
                     #Choose character and tell client
                     chosenCharacter = characterSelection("none")
                     nf.fSendToClient(serverConnection, chosenCharacter)
+                    otherCharacter = nf.fReceiveFromClient(serverConnection)
 
                     #Create map and send to client
                     mapStartUp()
@@ -1579,10 +1581,13 @@ while True:
             pygame.display.update()
             CLOCK.tick(FPS)
 
-            hostCharacter = nf.fReceiveFromServer(clientSocket)
+            otherCharacter = nf.fReceiveFromServer(clientSocket)
             
             #Client chooses character different from host's
-            chosenCharacter = characterSelection(hostCharacter)
+            chosenCharacter = characterSelection(otherCharacter)
+
+            #Send chosen character to host
+            nf.fSendToServer(clientSocket, chosenCharacter)
 
             #Receive grid
             SCREEN.blit(title, (BORDER_WIDTH, 0))
