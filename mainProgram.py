@@ -1039,9 +1039,9 @@ def gameStartUp():
     if isMultiplayer:
         scoreText2 = font.render("Their score: $" + str(them.money), True, WHITE, BLACK)
         resultText = font.render("", True, WHITE, BLACK)
-        if you.score > them.score:
+        if you.money > them.money:
             resultText = font.render("You win!", True, WHITE, BLACK)
-        elif you.score < them.score:
+        elif you.money < them.money:
             resultText = font.render("You lose.", True, WHITE, BLACK)
         else:
             resultText = font.render("It's a tie.", True, WHITE, BLACK)
