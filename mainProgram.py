@@ -1023,7 +1023,8 @@ def gameStartUp():
     while condition:
         executeGameFrame()
 
-    timeUp = font.render("Time up!", True, WHITE, BLACK)
+    #timeUp = font.render("Time up!", True, WHITE, BLACK)
+    timeUp = pygame.image.load("images/timeout.png").convert()
     timeUp.set_colorkey(BLACK)
     timeUpTimer = 2.0
     while timeUpTimer > 0.0:
@@ -1406,6 +1407,8 @@ def executeGameFrame():
         condition = False
 
 title = pygame.image.load("images/Title Card.png")
+highscoreScreen = pygame.image.load("images/High Scores.png")
+settingsScreen = pygame.image.load("images/Settings.png")
 font = pygame.font.SysFont("helvetica", 32)
 
 while True:
@@ -1657,11 +1660,16 @@ while True:
             gameStartUp()
                 
     elif selection == 2: # high scores
-        scoreImage1 = font.render("1: $" + str(highScore1), True, WHITE, BLACK)
-        scoreImage2 = font.render("2: $" + str(highScore2), True, WHITE, BLACK)
-        scoreImage3 = font.render("3: $" + str(highScore3), True, WHITE, BLACK)
-        scoreImage4 = font.render("4: $" + str(highScore4), True, WHITE, BLACK)
-        scoreImage5 = font.render("5: $" + str(highScore5), True, WHITE, BLACK)
+        scoreImage1 = font.render("1: $" + str(highScore1), True, BLACK, WHITE)
+        scoreImage2 = font.render("2: $" + str(highScore2), True, BLACK, WHITE)
+        scoreImage3 = font.render("3: $" + str(highScore3), True, BLACK, WHITE)
+        scoreImage4 = font.render("4: $" + str(highScore4), True, BLACK, WHITE)
+        scoreImage5 = font.render("5: $" + str(highScore5), True, BLACK, WHITE)
+        scoreImage1.set_colorkey(WHITE)
+        scoreImage2.set_colorkey(WHITE)
+        scoreImage3.set_colorkey(WHITE)
+        scoreImage4.set_colorkey(WHITE)
+        scoreImage5.set_colorkey(WHITE)
         condition = True
         while condition:
             for event in pygame.event.get():
@@ -1673,6 +1681,7 @@ while True:
                 elif event.type == MOUSEBUTTONDOWN:
                     condition = False
             SCREEN.fill(BLACK)
+            SCREEN.blit(highscoreScreen, (BORDER_WIDTH, 0))
             SCREEN.blit(scoreImage1, (150 + BORDER_WIDTH, 150))
             SCREEN.blit(scoreImage2, (150 + BORDER_WIDTH, 200))
             SCREEN.blit(scoreImage3, (150 + BORDER_WIDTH, 250))
@@ -1681,7 +1690,8 @@ while True:
             pygame.display.update()
             CLOCK.tick(FPS)
     elif selection == 3: # settings
-        exitText = font.render("Back to menu", True, WHITE, BLACK)
+        exitText = font.render("Back to menu", True, BLACK, WHITE)
+        exitText.set_colorkey(WHITE)
         cursor = pygame.image.load("images/cursor.png")
         currentSelection = 0
         condition = True
@@ -1719,9 +1729,12 @@ while True:
                         if currentSelection == 2:
                             condition = False
             
-            biomeNumText = font.render("Number of Biomes: " + str(biomesPerMap), True, WHITE, BLACK)
-            biomeSizeText = font.render("Biome Side Length: " + str(biomeLength), True, WHITE, BLACK)
+            biomeNumText = font.render("Number of Biomes: " + str(biomesPerMap), True, BLACK, WHITE)
+            biomeSizeText = font.render("Biome Side Length: " + str(biomeLength), True, BLACK, WHITE)
+            biomeNumText.set_colorkey(WHITE)
+            biomeSizeText.set_colorkey(WHITE)
             SCREEN.fill(BLACK)
+            SCREEN.blit(settingsScreen, (BORDER_WIDTH, 0))
             SCREEN.blit(biomeNumText, (150 + BORDER_WIDTH, 150))
             SCREEN.blit(biomeSizeText, (150 + BORDER_WIDTH, 200))
             SCREEN.blit(exitText, (150 + BORDER_WIDTH, 250))
