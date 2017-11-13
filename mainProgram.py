@@ -210,14 +210,14 @@ class Terrain(object):
         self.treasure = treasure
             
 class Player(object):
-    def __init__(self, row, col, speed, name):
+    def __init__(self, row, col, name):
         self.x = 250 + BORDER_WIDTH
         self.y = 250
         self.dispX = 0 # the amount of horizontal displacement the player experiences relative to the grid square
         self.dispY = 0 # the amount of vertical displacement the player experiences relative to the grid square
         self.row = row # the row the player is on on the grid
         self.col = col # the column the players is on on the grid
-        self.speed = speed # the speed of the player (in pixels per second)
+        self.speed = 250 # the speed of the player (in pixels per second)
         self.movement = self.speed // FPS # the amount of pixels they move each frame
         self.diagonalMovement = int(self.movement * math.cos(45)) # the amount of pixels they move each frame diagonally
         self.direction = [] # keeps track of which direction(s) the player is moving in
@@ -815,8 +815,8 @@ def setStartLocations():
                 
 # the main grid containing every piece of terrain and its location
 grid = [[Terrain(0, 0, "ground", False, 0)] * biomeLength * int(math.sqrt(biomesPerMap))] * biomeLength * int(math.sqrt(biomesPerMap))
-you = Player(5, 5, 250, "Josh")
-them = Player(5, 5, 250, "Josh")
+you = Player(5, 5, "Josh")
+them = Player(5, 5, "Josh")
 
 def handleGameEvents():
     global condition, toolImage, toolTimer, keysPressed, keysReleased
@@ -886,6 +886,8 @@ def handleGameEvents():
                     needToChange = False
                 toolImage = pygame.image.load("images/tools/" + you.currentTool + ".png")
                 toolTimer = 0.5
+            elif event.key == K_x:
+                print(you.row, you.col, them.row, them.col)
         elif event.type == KEYUP:
             if event.key == moveLeftKey:
                 keysReleased += "left "
@@ -993,22 +995,22 @@ def mapStartUp():
         grid = generateRandomMap(biomesPerMap, biomeLength, isMultiplayer)
     setStartLocations()
     if currentName == 0:
-        you = Player(anthonyStartLocation[0], anthonyStartLocation[1], 250, NAMES[currentName].lower())
+        you = Player(anthonyStartLocation[0], anthonyStartLocation[1], NAMES[currentName].lower())
     elif currentName == 1:
-        you = Player(caitlinStartLocation[0], caitlinStartLocation[1], 250, NAMES[currentName].lower())
+        you = Player(caitlinStartLocation[0], caitlinStartLocation[1], NAMES[currentName].lower())
     elif currentName == 2:
-        you = Player(joshStartLocation[0], joshStartLocation[1], 250, NAMES[currentName].lower())
+        you = Player(joshStartLocation[0], joshStartLocation[1], NAMES[currentName].lower())
     else:
-        you = Player(mattStartLocation[0], mattStartLocation[1], 250, NAMES[currentName].lower())
+        you = Player(mattStartLocation[0], mattStartLocation[1], NAMES[currentName].lower())
     if isMultiplayer:
         if otherCharacter == "Anthony":
-            them = Player(anthonyStartLocation[0], anthonyStartLocation[1], 250, "anthony")
+            them = Player(anthonyStartLocation[0], anthonyStartLocation[1], "anthony")
         elif otherCharacter == "Caitlin":
-            them = Player(caitlinStartLocation[0], caitlinStartLocation[1], 250, "caitlin")
+            them = Player(caitlinStartLocation[0], caitlinStartLocation[1], "caitlin")
         elif otherCharacter == "Josh":
-            them = Player(joshStartLocation[0], joshStartLocation[1], 250, "josh")
+            them = Player(joshStartLocation[0], joshStartLocation[1], "josh")
         else:
-            them = Player(mattStartLocation[0], mattStartLocation[1], 250, "matt")
+            them = Player(mattStartLocation[0], mattStartLocation[1], "matt")
     you.checkForCollisions()
     them.checkForCollisions()
     gameTimer = timeLimit
@@ -1030,54 +1032,88 @@ def gameStartUp():
         CLOCK.tick(FPS)
         timeUpTimer -= timePassed
     scoreText = font.render("Your score: $" + str(you.money), True, WHITE, BLACK)
-    nextText = font.render("", True, WHITE, BLACK)
     quitText = font.render("Press any key to go back to the main menu.", True, WHITE, BLACK)
-    if you.money > highScore1:
-        nextText = font.render("You broke the highest score!", True, WHITE, BLACK)
-        highScore5 = highScore4
-        highScore4 = highScore3
-        highScore3 = highScore2
-        highScore2 = highScore1
-        highScore1 = you.money
-    elif you.money > highScore2:
-        nextText = font.render("You broke the second highest score!", True, WHITE, BLACK)
-        highScore5 = highScore4
-        highScore4 = highScore3
-        highScore3 = highScore2
-        highScore2 = you.money
-    elif you.money > highScore3:
-        nextText = font.render("You broke the third highest score!", True, WHITE, BLACK)
-        highScore5 = highScore4
-        highScore4 = highScore3
-        highScore3 = you.money
-    elif you.money > highScore4:
-        nextText = font.render("You broke the fourth highest score!", True, WHITE, BLACK)
-        highScore5 = highScore4
-        highScore4 = you.money
-    elif you.money > highScore5:
-        nextText = font.render("You broke the fifth highest score!", True, WHITE, BLACK)
-        highScore5 = you.money
-    saveHighScores()
     waitTimer = 1.0
     condition = True
-    while condition:
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit()
-                os._exit(0)
-            elif event.type == KEYDOWN:
-                if waitTimer <= 0.0:
-                    condition = False
-        SCREEN.fill(BLACK)
-        SCREEN.blit(scoreText, (SCREEN_WIDTH // 2 - scoreText.get_width() // 2, 200))
-        SCREEN.blit(nextText, (SCREEN_WIDTH // 2 - nextText.get_width() // 2, 250))
-        if waitTimer <= 0.0:
-            SCREEN.blit(quitText, (SCREEN_WIDTH // 2 - quitText.get_width() // 2, 300))
-        pygame.display.update()
-        CLOCK.tick(FPS)
-        waitTimer -= timePassed
-        if waitTimer < 0.0:
-            waitTimer = 0.0
+    if isMultiplayer:
+        scoreText2 = font.render("Their score: $" + str(them.money), True, WHITE, BLACK)
+        resultText = font.render("", True, WHITE, BLACK)
+        if you.score > them.score:
+            resultText = font.render("You win!", True, WHITE, BLACK)
+        elif you.score < them.score:
+            resultText = font.render("You lose.", True, WHITE, BLACK)
+        else:
+            resultText = font.render("It's a tie.", True, WHITE, BLACK)
+        while condition:
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    os._exit(0)
+                elif event.type == KEYDOWN:
+                    if waitTimer <= 0.0:
+                        condition = False
+            SCREEN.fill(BLACK)
+            SCREEN.blit(scoreText, (SCREEN_WIDTH // 2 - scoreText.get_width() // 2, 200))
+            SCREEN.blit(scoreText2, (SCREEN_WIDTH // 2 - scoreText2.get_width() // 2, 250))
+            SCREEN.blit(resultText, (SCREEN_WIDTH // 2 - nextText.get_width() // 2, 300))
+            if waitTimer <= 0.0:
+                SCREEN.blit(quitText, (SCREEN_WIDTH // 2 - quitText.get_width() // 2, 350))
+            pygame.display.update()
+            CLOCK.tick(FPS)
+            waitTimer -= timePassed
+            if waitTimer < 0.0:
+                waitTimer = 0.0
+        # shutdown socket
+        if isHost:
+            nf.fCloseServer(serverConnection)
+        else:
+            nf.fCloseClient(clientSocket)
+    else:
+        nextText = font.render("", True, WHITE, BLACK)
+        if you.money > highScore1:
+            nextText = font.render("You broke the highest score!", True, WHITE, BLACK)
+            highScore5 = highScore4
+            highScore4 = highScore3
+            highScore3 = highScore2
+            highScore2 = highScore1
+            highScore1 = you.money
+        elif you.money > highScore2:
+            nextText = font.render("You broke the second highest score!", True, WHITE, BLACK)
+            highScore5 = highScore4
+            highScore4 = highScore3
+            highScore3 = highScore2
+            highScore2 = you.money
+        elif you.money > highScore3:
+            nextText = font.render("You broke the third highest score!", True, WHITE, BLACK)
+            highScore5 = highScore4
+            highScore4 = highScore3
+            highScore3 = you.money
+        elif you.money > highScore4:
+            nextText = font.render("You broke the fourth highest score!", True, WHITE, BLACK)
+            highScore5 = highScore4
+            highScore4 = you.money
+        elif you.money > highScore5:
+            nextText = font.render("You broke the fifth highest score!", True, WHITE, BLACK)
+            highScore5 = you.money
+        saveHighScores()
+        while condition:
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    os._exit(0)
+                elif event.type == KEYDOWN:
+                    if waitTimer <= 0.0:
+                        condition = False
+            SCREEN.fill(BLACK)
+            SCREEN.blit(scoreText, (SCREEN_WIDTH // 2 - scoreText.get_width() // 2, 200))
+            SCREEN.blit(nextText, (SCREEN_WIDTH // 2 - nextText.get_width() // 2, 250))
+            if waitTimer <= 0.0:
+                SCREEN.blit(quitText, (SCREEN_WIDTH // 2 - quitText.get_width() // 2, 300))
+            pygame.display.update()
+            CLOCK.tick(FPS)
+            waitTimer -= timePassed
+            if waitTimer < 0.0:
+                waitTimer = 0.0
 
 def executeGameFrame():
     global gameTimer, toolTimer, condition
@@ -1271,11 +1307,17 @@ def executeGameFrame():
     them.move()
     # render new frame: fill screen with solid color, blit the grid, and then blit the player
     SCREEN.fill(BLACK)
+    otherPlayerX = None
+    otherPlayerY = None
     for i in range(len(you.screenGrid)):
         for j in range(len(you.screenGrid[0])):
             SCREEN.blit(you.screenGrid[i][j].image, (50 * (j - 1) - you.dispX + BORDER_WIDTH, 50 * (i - 1) - you.dispY))
             if you.screenGrid[i][j].isDestroyed and you.screenGrid[i][j].treasure != 0:
                 SCREEN.blit(you.screenGrid[i][j].treasure.image, (50 * (j - 1) - you.dispX + BORDER_WIDTH, 50 * (i - 1) - you.dispY))
+            if isMultiplayer:
+                if them.row == you.screenGrid[i][j].row and them.col == you.screenGrid[i][j].col:
+                    otherPlayerX = 50 * (j - 1) - you.dispX + BORDER_WIDTH + them.dispX
+                    otherPlayerY = 50 * (i - 1) - you.dispY + them.dispY
     if you.toolInUse:
         toolAnimation = pygame.image.load("images/tools/" + you.currentTool + " " + you.orientation + " " + str(you.toolAnimation) + ".png").convert()
         toolAnimation.set_colorkey(WHITE)
@@ -1290,7 +1332,8 @@ def executeGameFrame():
     SCREEN.blit(you.image, (you.x, you.y))
     if isMultiplayer:
         # blit other player to screen if they are on screen
-        pass
+        if otherPlayerX != None:
+            SCREEN.blit(them.image, (otherPlayerX, otherPlayerY))
     if toolTimer > 0.0:
         SCREEN.blit(toolImage, (you.x + 5, you.y - 45))
     SCREEN.blit(leftBorder, (0, 0))
