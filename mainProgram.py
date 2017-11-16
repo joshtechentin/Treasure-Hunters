@@ -213,7 +213,7 @@ class Player(object):
     def __init__(self, row, col, name):
         self.x = 250 + BORDER_WIDTH
         self.y = 250
-        self.dispX = 0 # the amount of horizontal displacement the player experiences relative to the grid square
+        self.dispX = 0 # the amount of horizontal displacement the player experiences relative to the grid square        
         self.dispY = 0 # the amount of vertical displacement the player experiences relative to the grid square
         self.row = row # the row the player is on on the grid
         self.col = col # the column the players is on on the grid
@@ -243,6 +243,30 @@ class Player(object):
         self.toolInUse = False
         self.hasBridge = False
         self.usingBridge = False
+
+    def getDispX(self):
+        return self.dispX
+
+    def getDispY(self):
+        return self.dispY
+
+    def setDispX(self, x):
+        self.dispX = x
+
+    def setDispY(self, y):
+        self.dispY = y
+
+    def getRow(self):
+        return self.row
+
+    def getCol(self):
+        return self.col
+
+    def setRow(self, row):
+        self.row = row
+
+    def setCol(self, col):
+        self.col = col
 
     def changeOrientation(self, orientation):
         self.orientation = orientation
@@ -1020,8 +1044,10 @@ def gameStartUp():
     global highScore1, highScore2, highScore3, highScore4, highScore5
 
     condition = True
+    i = 0
     while condition:
-        executeGameFrame()
+        i = i + 1;
+        executeGameFrame(i)
 
     #timeUp = font.render("Time up!", True, WHITE, BLACK)
     timeUp = pygame.image.load("images/timeout.png").convert()
@@ -1039,9 +1065,9 @@ def gameStartUp():
     if isMultiplayer:
         scoreText2 = font.render("Their score: $" + str(them.money), True, WHITE, BLACK)
         resultText = font.render("", True, WHITE, BLACK)
-        if you.score > them.score:
+        if you.money > them.money:
             resultText = font.render("You win!", True, WHITE, BLACK)
-        elif you.score < them.score:
+        elif you.money < them.money:
             resultText = font.render("You lose.", True, WHITE, BLACK)
         else:
             resultText = font.render("It's a tie.", True, WHITE, BLACK)
@@ -1116,7 +1142,7 @@ def gameStartUp():
             if waitTimer < 0.0:
                 waitTimer = 0.0
 
-def executeGameFrame():
+def executeGameFrame(i):
     global gameTimer, toolTimer, condition
     handleGameEvents()
     if isMultiplayer:
@@ -1125,6 +1151,16 @@ def executeGameFrame():
             clientKeysPressed = nf.fReceiveFromClient(serverConnection)
             nf.fSendToClient(serverConnection, keysReleased)
             clientKeysReleased = nf.fReceiveFromClient(serverConnection)
+            if (i % 5) == 0:
+                nf.fSendIntToClient(serverConnection, you.getDispX())
+                them.setDispX(nf.fReceiveIntFromClient(serverConnection))
+                nf.fSendIntToClient(serverConnection, you.getDispY())
+                them.setDispY(nf.fReceiveIntFromClient(serverConnection))
+                nf.fSendIntToClient(serverConnection, you.getRow())
+                them.setRow(nf.fReceiveIntFromClient(serverConnection))
+                nf.fSendIntToClient(serverConnection, you.getCol())
+                them.setCol(nf.fReceiveIntFromClient(serverConnection))
+                
             if "left " in clientKeysPressed:
                 if len(them.direction) == 0:
                     them.changeOrientation("left")
@@ -1214,6 +1250,16 @@ def executeGameFrame():
             nf.fSendToServer(clientSocket, keysPressed)
             serverKeysReleased = nf.fReceiveFromServer(clientSocket)
             nf.fSendToServer(clientSocket, keysReleased)
+            if (i % 5) == 0:
+                them.setDispX(nf.fReceiveIntFromServer(clientSocket))
+                nf.fSendIntToServer(clientSocket, you.getDispX())
+                them.setDispY(nf.fReceiveIntFromServer(clientSocket))
+                nf.fSendIntToServer(clientSocket, you.getDispY())
+                them.setRow(nf.fReceiveIntFromServer(clientSocket))
+                nf.fSendIntToServer(clientSocket, you.getRow())
+                them.setCol(nf.fReceiveIntFromServer(clientSocket))
+                nf.fSendIntToServer(clientSocket, you.getCol())
+           
             if "left " in serverKeysPressed:
                 if len(them.direction) == 0:
                     them.changeOrientation("left")
