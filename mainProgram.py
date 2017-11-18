@@ -270,6 +270,9 @@ class Player(object):
 
     def changeOrientation(self, orientation):
         self.orientation = orientation
+
+    def getOrientation(self):
+        return self.orientation
     
     def changeImage(self):
         self.image = pygame.image.load("images/characters/" + self.name + "/" + self.orientation + " " + str(self.animationFrame) + ".png")
@@ -1149,9 +1152,9 @@ def executeGameFrame(i):
         if isHost:
             nf.fSendToClient(serverConnection, keysPressed)
             clientKeysPressed = nf.fReceiveFromClient(serverConnection)
-            nf.fSendToClient(serverConnection, keysReleased)
-            clientKeysReleased = nf.fReceiveFromClient(serverConnection)
             if (i % 5) == 0:
+                nf.fSendToClient(serverConnection, you.getOrientation())
+                them.changeOrientation(nf.fReceiveFromClient(serverConnection))
                 nf.fSendIntToClient(serverConnection, you.getDispX())
                 them.setDispX(nf.fReceiveIntFromClient(serverConnection))
                 nf.fSendIntToClient(serverConnection, you.getDispY())
@@ -1160,6 +1163,9 @@ def executeGameFrame(i):
                 them.setRow(nf.fReceiveIntFromClient(serverConnection))
                 nf.fSendIntToClient(serverConnection, you.getCol())
                 them.setCol(nf.fReceiveIntFromClient(serverConnection))
+            nf.fSendToClient(serverConnection, keysReleased)
+            clientKeysReleased = nf.fReceiveFromClient(serverConnection)
+            
                 
             if "left " in clientKeysPressed:
                 if len(them.direction) == 0:
@@ -1248,9 +1254,9 @@ def executeGameFrame(i):
         else:
             serverKeysPressed = nf.fReceiveFromServer(clientSocket)
             nf.fSendToServer(clientSocket, keysPressed)
-            serverKeysReleased = nf.fReceiveFromServer(clientSocket)
-            nf.fSendToServer(clientSocket, keysReleased)
             if (i % 5) == 0:
+                them.changeOrientation(nf.fReceiveFromServer(clientSocket))
+                nf.fSendToServer(clientSocket, you.getOrientation())
                 them.setDispX(nf.fReceiveIntFromServer(clientSocket))
                 nf.fSendIntToServer(clientSocket, you.getDispX())
                 them.setDispY(nf.fReceiveIntFromServer(clientSocket))
@@ -1259,6 +1265,8 @@ def executeGameFrame(i):
                 nf.fSendIntToServer(clientSocket, you.getRow())
                 them.setCol(nf.fReceiveIntFromServer(clientSocket))
                 nf.fSendIntToServer(clientSocket, you.getCol())
+            serverKeysReleased = nf.fReceiveFromServer(clientSocket)
+            nf.fSendToServer(clientSocket, keysReleased)
            
             if "left " in serverKeysPressed:
                 if len(them.direction) == 0:
@@ -1664,7 +1672,7 @@ while True:
                 CLOCK.tick(FPS)
                 isMultiplayer = True
 
-            time.sleep(2)
+            time.sleep(0.5)
             #Receive host's chosen character
             SCREEN.blit(title, (BORDER_WIDTH, 0))
             fontObj = font.render("Host is choosing character", True, YELLOW, BLACK)
