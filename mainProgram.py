@@ -14,7 +14,7 @@ pygame.init()
 WHITE  = (255, 255, 255)
 YELLOW = (255, 255,   0)
 BLACK  = (  0,   0,   0)
-GREY = (192, 192, 192)
+GREY   = (192, 192, 192)
 
 BORDER_WIDTH = 200
 SCREEN_WIDTH = 550 + BORDER_WIDTH * 2
@@ -311,12 +311,14 @@ class Player(object):
                             if horizontalWrap:
                                 clipFromLeft = rightX
                                 clipFromRight = 50 * biomeLength * int(math.sqrt(biomesPerMap)) - leftX
+                                print(clipFromLeft, clipFromRight)
                             else:
                                 clipFromLeft = rightX - j.col * 50 # the distance the player has clipped into the left side of the terrain
                                 clipFromRight = j.col * 50 + 50 - leftX # the distance the player has clipped into the right side of the terrain
                             if verticalWrap:
                                 clipFromAbove = downY
                                 clipFromBelow = 50 * biomeLength * int(math.sqrt(biomesPerMap)) - upY
+                                print(clipFromAbove, clipFromBelow)
                             else:
                                 clipFromAbove = downY - j.row * 50 # the distance the player had clipped into the upper side of the terrain
                                 clipFromBelow = j.row * 50 + 50 - upY # the distance the player has clipped into the lower side of the terrain
@@ -1048,10 +1050,13 @@ def gameStartUp():
 
     condition = True
     i = 0
+    pygame.mixer.music.stop()
+    pygame.mixer.music.load("music/gameplay.wav")
+    pygame.mixer.music.play(-1, 0.0)
     while condition:
         i = i + 1;
         executeGameFrame(i)
-
+    pygame.mixer.music.stop()
     #timeUp = font.render("Time up!", True, WHITE, BLACK)
     timeUp = pygame.image.load("images/timeout.png").convert()
     timeUp.set_colorkey(BLACK)
@@ -1085,7 +1090,7 @@ def gameStartUp():
             SCREEN.fill(BLACK)
             SCREEN.blit(scoreText, (SCREEN_WIDTH // 2 - scoreText.get_width() // 2, 200))
             SCREEN.blit(scoreText2, (SCREEN_WIDTH // 2 - scoreText2.get_width() // 2, 250))
-            SCREEN.blit(resultText, (SCREEN_WIDTH // 2 - nextText.get_width() // 2, 300))
+            SCREEN.blit(resultText, (SCREEN_WIDTH // 2 - resultText.get_width() // 2, 300))
             if waitTimer <= 0.0:
                 SCREEN.blit(quitText, (SCREEN_WIDTH // 2 - quitText.get_width() // 2, 350))
             pygame.display.update()
@@ -1163,6 +1168,8 @@ def executeGameFrame(i):
                 them.setRow(nf.fReceiveIntFromClient(serverConnection))
                 nf.fSendIntToClient(serverConnection, you.getCol())
                 them.setCol(nf.fReceiveIntFromClient(serverConnection))
+                nf.fSendIntToClient(serverConnection, gameTimer)
+                tmp = nf.fReceiveFromClient(serverConnection)
             nf.fSendToClient(serverConnection, keysReleased)
             clientKeysReleased = nf.fReceiveFromClient(serverConnection)
             
@@ -1265,6 +1272,8 @@ def executeGameFrame(i):
                 nf.fSendIntToServer(clientSocket, you.getRow())
                 them.setCol(nf.fReceiveIntFromServer(clientSocket))
                 nf.fSendIntToServer(clientSocket, you.getCol())
+                gameTimer = nf.fReceiveIntFromServer(clientSocket)
+                nf.fSendToServer(clientSocket, "got it")
             serverKeysReleased = nf.fReceiveFromServer(clientSocket)
             nf.fSendToServer(clientSocket, keysReleased)
            
@@ -1480,6 +1489,8 @@ while True:
     settingsText.set_colorkey(BLACK)
     exitText.set_colorkey(BLACK)
     yellowCursor.set_colorkey(BLACK)
+    pygame.mixer.music.load("music/menu.wav")
+    pygame.mixer.music.play(-1, 0.0)
     while gameSelection:
         for event in pygame.event.get():
             if event.type == QUIT:
