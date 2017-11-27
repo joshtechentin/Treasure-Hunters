@@ -1049,13 +1049,11 @@ def gameStartUp():
     global highScore1, highScore2, highScore3, highScore4, highScore5
 
     condition = True
-    i = 0
     pygame.mixer.music.stop()
     pygame.mixer.music.load("music/gameplay.wav")
     pygame.mixer.music.play(-1, 0.0)
     while condition:
-        i = i + 1;
-        executeGameFrame(i)
+        executeGameFrame()
     pygame.mixer.music.stop()
     #timeUp = font.render("Time up!", True, WHITE, BLACK)
     timeUp = pygame.image.load("images/timeout.png").convert()
@@ -1150,26 +1148,27 @@ def gameStartUp():
             if waitTimer < 0.0:
                 waitTimer = 0.0
 
-def executeGameFrame(i):
+def executeGameFrame():
     global gameTimer, toolTimer, condition
     handleGameEvents()
     if isMultiplayer:
         if isHost:
             nf.fSendToClient(serverConnection, keysPressed)
             clientKeysPressed = nf.fReceiveFromClient(serverConnection)
-            if (i % 5) == 0:
-                nf.fSendToClient(serverConnection, you.getOrientation())
-                them.changeOrientation(nf.fReceiveFromClient(serverConnection))
-                nf.fSendIntToClient(serverConnection, you.getDispX())
-                them.setDispX(nf.fReceiveIntFromClient(serverConnection))
-                nf.fSendIntToClient(serverConnection, you.getDispY())
-                them.setDispY(nf.fReceiveIntFromClient(serverConnection))
-                nf.fSendIntToClient(serverConnection, you.getRow())
-                them.setRow(nf.fReceiveIntFromClient(serverConnection))
-                nf.fSendIntToClient(serverConnection, you.getCol())
-                them.setCol(nf.fReceiveIntFromClient(serverConnection))
-                nf.fSendIntToClient(serverConnection, gameTimer)
-                tmp = nf.fReceiveFromClient(serverConnection)
+            nf.fSendToClient(serverConnection, you.getOrientation())
+            them.changeOrientation(nf.fReceiveFromClient(serverConnection))
+            nf.fSendIntToClient(serverConnection, you.getDispX())
+            them.setDispX(nf.fReceiveIntFromClient(serverConnection))
+            nf.fSendIntToClient(serverConnection, you.getDispY())
+            them.setDispY(nf.fReceiveIntFromClient(serverConnection))
+            nf.fSendIntToClient(serverConnection, you.getRow())
+            them.setRow(nf.fReceiveIntFromClient(serverConnection))
+            nf.fSendIntToClient(serverConnection, you.getCol())
+            them.setCol(nf.fReceiveIntFromClient(serverConnection))
+            
+            nf.fSendIntToClient(serverConnection, gameTimer)
+            tmp = nf.fReceiveFromClient(serverConnection)
+            
             nf.fSendToClient(serverConnection, keysReleased)
             clientKeysReleased = nf.fReceiveFromClient(serverConnection)
             
@@ -1261,19 +1260,20 @@ def executeGameFrame(i):
         else:
             serverKeysPressed = nf.fReceiveFromServer(clientSocket)
             nf.fSendToServer(clientSocket, keysPressed)
-            if (i % 5) == 0:
-                them.changeOrientation(nf.fReceiveFromServer(clientSocket))
-                nf.fSendToServer(clientSocket, you.getOrientation())
-                them.setDispX(nf.fReceiveIntFromServer(clientSocket))
-                nf.fSendIntToServer(clientSocket, you.getDispX())
-                them.setDispY(nf.fReceiveIntFromServer(clientSocket))
-                nf.fSendIntToServer(clientSocket, you.getDispY())
-                them.setRow(nf.fReceiveIntFromServer(clientSocket))
-                nf.fSendIntToServer(clientSocket, you.getRow())
-                them.setCol(nf.fReceiveIntFromServer(clientSocket))
-                nf.fSendIntToServer(clientSocket, you.getCol())
-                gameTimer = nf.fReceiveIntFromServer(clientSocket)
-                nf.fSendToServer(clientSocket, "got it")
+            them.changeOrientation(nf.fReceiveFromServer(clientSocket))
+            nf.fSendToServer(clientSocket, you.getOrientation())
+            them.setDispX(nf.fReceiveIntFromServer(clientSocket))
+            nf.fSendIntToServer(clientSocket, you.getDispX())
+            them.setDispY(nf.fReceiveIntFromServer(clientSocket))
+            nf.fSendIntToServer(clientSocket, you.getDispY())
+            them.setRow(nf.fReceiveIntFromServer(clientSocket))
+            nf.fSendIntToServer(clientSocket, you.getRow())
+            them.setCol(nf.fReceiveIntFromServer(clientSocket))
+            nf.fSendIntToServer(clientSocket, you.getCol())
+    
+            gameTimer = nf.fReceiveIntFromServer(clientSocket)
+            nf.fSendToServer(clientSocket, "got it")
+            
             serverKeysReleased = nf.fReceiveFromServer(clientSocket)
             nf.fSendToServer(clientSocket, keysReleased)
            
