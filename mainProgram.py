@@ -89,6 +89,8 @@ caitlinStartLocation = 0
 joshStartLocation = 0
 mattStartLocation = 0
 
+currentSong = "None"
+
 highScore1 = 0
 highScore2 = 0
 highScore3 = 0
@@ -242,7 +244,6 @@ class Player(object):
         self.toolAnimation = 0 # determines the animation frame of the tool being used
         self.toolInUse = False
         self.hasBridge = False
-        self.usingBridge = False
 
     def getDispX(self):
         return self.dispX
@@ -308,29 +309,30 @@ class Player(object):
                         verticalWrap = True
                     if (rightX >= j.col * 50 or rightX <= self.image.get_width() and horizontalWrap) and (leftX <= j.col * 50 + 50 or leftX > 50 * len(grid) - self.image.get_width() and horizontalWrap): # check if x's overlap
                         if (downY >= j.row * 50 or downY <= self.image.get_height() and verticalWrap) and (upY <= j.row * 50 + 50 or upY > 50 * len(grid) - self.image.get_height() and verticalWrap): # check if y's overlap
-                            if horizontalWrap:
-                                clipFromLeft = rightX
-                                clipFromRight = 50 * biomeLength * int(math.sqrt(biomesPerMap)) - leftX
-                                print(clipFromLeft, clipFromRight)
+                            if j.name == "water" and self.hasBridge:
+                                pass
                             else:
-                                clipFromLeft = rightX - j.col * 50 # the distance the player has clipped into the left side of the terrain
-                                clipFromRight = j.col * 50 + 50 - leftX # the distance the player has clipped into the right side of the terrain
-                            if verticalWrap:
-                                clipFromAbove = downY
-                                clipFromBelow = 50 * biomeLength * int(math.sqrt(biomesPerMap)) - upY
-                                print(clipFromAbove, clipFromBelow)
-                            else:
-                                clipFromAbove = downY - j.row * 50 # the distance the player had clipped into the upper side of the terrain
-                                clipFromBelow = j.row * 50 + 50 - upY # the distance the player has clipped into the lower side of the terrain
-                            
-                            if clipFromLeft == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
-                                self.dispX -= clipFromLeft - 1
-                            elif clipFromRight == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
-                                self.dispX += clipFromRight + 1
-                            elif clipFromAbove == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
-                                self.dispY -= clipFromAbove - 1
-                            else:
-                                self.dispY += clipFromBelow + 1
+                                if horizontalWrap:
+                                    clipFromLeft = rightX
+                                    clipFromRight = 50 * biomeLength * int(math.sqrt(biomesPerMap)) - leftX
+                                else:
+                                    clipFromLeft = rightX - j.col * 50 # the distance the player has clipped into the left side of the terrain
+                                    clipFromRight = j.col * 50 + 50 - leftX # the distance the player has clipped into the right side of the terrain
+                                if verticalWrap:
+                                    clipFromAbove = downY
+                                    clipFromBelow = 50 * biomeLength * int(math.sqrt(biomesPerMap)) - upY
+                                else:
+                                    clipFromAbove = downY - j.row * 50 # the distance the player had clipped into the upper side of the terrain
+                                    clipFromBelow = j.row * 50 + 50 - upY # the distance the player has clipped into the lower side of the terrain
+                                
+                                if clipFromLeft == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
+                                    self.dispX -= clipFromLeft - 1
+                                elif clipFromRight == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
+                                    self.dispX += clipFromRight + 1
+                                elif clipFromAbove == min(clipFromLeft, clipFromRight, clipFromAbove, clipFromBelow):
+                                    self.dispY -= clipFromAbove - 1
+                                else:
+                                    self.dispY += clipFromBelow + 1
                 elif j.isDestroyed and j.treasure != 0:
                     leftX = self.col * 50 + self.dispX + 11
                     rightX = leftX + self.collisionSurface.get_width()
@@ -726,6 +728,7 @@ def generateRandomMap(biomesPerMap, tilesPerSide, isMultiplayer):
             biomeTypes.append("plains")
         for i in range(3):
             biomeTypes.append("farm")
+        biomeTypes.append(random.choice(BIOMES))
     elif biomesPerMap == 25:
         for i in range(5):
             biomeTypes.append("forest")
@@ -915,8 +918,6 @@ def handleGameEvents():
                     needToChange = False
                 toolImage = pygame.image.load("images/tools/" + you.currentTool + ".png")
                 toolTimer = 0.5
-            elif event.key == K_x:
-                print(you.row, you.col, them.row, them.col)
         elif event.type == KEYUP:
             if event.key == moveLeftKey:
                 keysReleased += "left "
@@ -1017,9 +1018,6 @@ def mapStartUp():
     SCREEN.blit(generateText, (SCREEN_WIDTH // 2 - generateText.get_width() // 2, 350))
     pygame.display.update()
     CLOCK.tick(FPS)
-    if isMultiplayer:
-        biomesPerMap = 9
-        biomeLength = 11
     if isHost:
         grid = generateRandomMap(biomesPerMap, biomeLength, isMultiplayer)
     setStartLocations()
@@ -1045,13 +1043,14 @@ def mapStartUp():
     gameTimer = timeLimit
 
 def gameStartUp():
-    global condition
+    global condition, currentSong
     global highScore1, highScore2, highScore3, highScore4, highScore5
 
     condition = True
     pygame.mixer.music.stop()
     pygame.mixer.music.load("music/gameplay.wav")
     pygame.mixer.music.play(-1, 0.0)
+    currentSong = "gameplay"
     while condition:
         executeGameFrame()
     pygame.mixer.music.stop()
@@ -1489,8 +1488,10 @@ while True:
     settingsText.set_colorkey(BLACK)
     exitText.set_colorkey(BLACK)
     yellowCursor.set_colorkey(BLACK)
-    pygame.mixer.music.load("music/menu.wav")
-    pygame.mixer.music.play(-1, 0.0)
+    if currentSong != "menu":
+        pygame.mixer.music.load("music/menu.wav")
+        pygame.mixer.music.play(-1, 0.0)
+        currentSong = "menu"
     while gameSelection:
         for event in pygame.event.get():
             if event.type == QUIT:
