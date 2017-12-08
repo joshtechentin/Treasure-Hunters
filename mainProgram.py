@@ -1018,6 +1018,9 @@ def mapStartUp():
     SCREEN.blit(generateText, (SCREEN_WIDTH // 2 - generateText.get_width() // 2, 350))
     pygame.display.update()
     CLOCK.tick(FPS)
+    if isMultiplayer:
+        biomesPerMap = 9
+        biomeLength = 11
     if isHost:
         grid = generateRandomMap(biomesPerMap, biomeLength, isMultiplayer)
     setStartLocations()
